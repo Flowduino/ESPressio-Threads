@@ -154,12 +154,12 @@ void setup() {
 }
 ```
 That's all there is to it! If you push this program to your (compatible) microcontroller, it will immediately start printing the following into your Serial console (once per second):
-
->MyFirstThread::OnLoop() - Thread 1 - On CPU 0, Counter = 0
->MyFirstThread::OnLoop() - Thread 1 - On CPU 0, Counter = 1
->MyFirstThread::OnLoop() - Thread 1 - On CPU 0, Counter = 2
->MyFirstThread::OnLoop() - Thread 1 - On CPU 0, Counter = 3
-
+```
+MyFirstThread::OnLoop() - Thread 1 - On CPU 0, Counter = 0
+MyFirstThread::OnLoop() - Thread 1 - On CPU 0, Counter = 1
+MyFirstThread::OnLoop() - Thread 1 - On CPU 0, Counter = 2
+MyFirstThread::OnLoop() - Thread 1 - On CPU 0, Counter = 3
+```
 ### What about the `loop()` method?
 Your existing `loop()` method will continue to operate exactly as it always has. On the ESP32, the default `loop()` method executes on CPU 1, while you will notice that your instance of `MyFirstThread` (`thread1` in the above sample code) is running on CPU 0.
 
@@ -220,12 +220,14 @@ void setup() {
 ```
 
 We've now added two additional threads, so our output will look something like this:
->MyFirstThread::OnLoop() - Thread 1 - On CPU 0, Counter = 1
->MyFirstThread::OnLoop() - Thread 2 - On CPU 1, Counter = 1
->MyFirstThread::OnLoop() - Thread 3 - On CPU 0, Counter = 1
->MyFirstThread::OnLoop() - Thread 1 - On CPU 0, Counter = 2
->MyFirstThread::OnLoop() - Thread 3 - On CPU 0, Counter = 2
->MyFirstThread::OnLoop() - Thread 2 - On CPU 1, Counter = 2
+```
+MyFirstThread::OnLoop() - Thread 1 - On CPU 0, Counter = 1
+MyFirstThread::OnLoop() - Thread 2 - On CPU 1, Counter = 1
+MyFirstThread::OnLoop() - Thread 3 - On CPU 0, Counter = 1
+MyFirstThread::OnLoop() - Thread 1 - On CPU 0, Counter = 2
+MyFirstThread::OnLoop() - Thread 3 - On CPU 0, Counter = 2
+MyFirstThread::OnLoop() - Thread 2 - On CPU 1, Counter = 2
+```
 
 The explicit maximum number of *ESPresio* `Thread`s supported by the library is 256, however the *practical limit* depends entirely on the specifications of your microcontroller. It's almost certainly going to be considerably lower than 256!
 
