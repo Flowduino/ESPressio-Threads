@@ -3,9 +3,9 @@
 #include "ESPressio_IThread.hpp"
 #include "ESPressio_ThreadSafe.hpp"
 
-ifndef ESPRESSIO_THREAD_DEFAULT_STACK_SIZE
+#ifndef ESPRESSIO_THREAD_DEFAULT_STACK_SIZE
     #define ESPRESSIO_THREAD_DEFAULT_STACK_SIZE 4000
-endif
+#endif
 
 namespace ESPressio {
 
@@ -70,7 +70,7 @@ namespace ESPressio {
                 }
             public:
             // Constructor/Destructor
-                Thread();
+                Thread(bool freeOnTerminate = false);
 
                 ~Thread();
 
