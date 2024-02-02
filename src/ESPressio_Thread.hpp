@@ -70,7 +70,11 @@ namespace ESPressio {
                 }
             public:
             // Constructor/Destructor
-                Thread(bool freeOnTerminate = false);
+                Thread();
+
+                Thread(bool freeOnTerminate) : Thread() {
+                    SetFreeOnTerminate(freeOnTerminate);
+                }
 
                 ~Thread();
 

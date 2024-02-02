@@ -8,7 +8,7 @@ namespace ESPressio {
     namespace Threads {
 
         // Define the Constructor and Destructor of `Thread` here
-        Thread::Thread(bool freeOnTerminate = false) : _threadID(0) {
+        Thread::Thread() : _threadID(0) {
             SetFreeOnTerminate(freeOnTerminate);
             _threadID = ThreadManager::GetInstance()->GetThreadCount();
             SetCoreID(ThreadManager::GetInstance()->AddThread(this));
