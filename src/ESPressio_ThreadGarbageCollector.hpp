@@ -9,7 +9,7 @@
 
 namespace ESPressio {
 
-    namsapce Threads {
+    namespace Threads {
 
         class ThreadGarbageCollector : Thread {
             private:
