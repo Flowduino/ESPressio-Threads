@@ -3,6 +3,10 @@
 #include "ESPressio_IThread.hpp"
 #include "ESPressio_ThreadSafe.hpp"
 
+ifndef ESPRESSIO_THREAD_DEFAULT_STACK_SIZE
+    #define ESPRESSIO_THREAD_DEFAULT_STACK_SIZE 4000
+endif
+
 namespace ESPressio {
 
     namespace Threads {
@@ -22,7 +26,7 @@ namespace ESPressio {
                 ReadWriteMutex<bool> _freeOnTerminate = ReadWriteMutex<bool>(false);
                 ReadWriteMutex<bool> _startOnInitialize = ReadWriteMutex<bool>(true);
                 TaskHandle_t _taskHandle = nullptr; // SHOULD be Atomic!
-                ReadWriteMutex<uint32_t> _stackSize = ReadWriteMutex<uint32_t>(10000);
+                ReadWriteMutex<uint32_t> _stackSize = ReadWriteMutex<uint32_t>(ESPRESSIO_THREAD_DEFAULT_STACK_SIZE);
                 ReadWriteMutex<UBaseType_t> _priority = ReadWriteMutex<UBaseType_t>(2);
                 ReadWriteMutex<BaseType_t> _coreID = ReadWriteMutex<BaseType_t>(0);
 
