@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ESPressio_IThread.hpp"
-#include "ThreadSafe.hpp"
+#include "ESPressio_ThreadSafe.hpp"
 
 namespace ESPressio {
 
@@ -161,5 +161,5 @@ namespace ESPressio {
                 _startOnInitialize.Set(value);
             }
     };
-    
+
 }
