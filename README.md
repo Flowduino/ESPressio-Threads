@@ -229,7 +229,7 @@ MyFirstThread::OnLoop() - Thread 3 - On CPU 0, Counter = 2
 MyFirstThread::OnLoop() - Thread 2 - On CPU 1, Counter = 2
 ```
 
-The explicit maximum number of *ESPresio* `Thread`s supported by the library is 256, however the *practical limit* depends entirely on the specifications of your microcontroller. It's almost certainly going to be considerably lower than 256!
+The explicit maximum number of *ESPressio* `Thread`s supported by the library is 256, however the *practical limit* depends entirely on the specifications of your microcontroller. It's almost certainly going to be considerably lower than 256!
 
 ### The Thread Manager
 In the previous example, you'll see that we manually called `Initialize()` on each instance of `MyFirstThread`.
@@ -255,3 +255,63 @@ void setup() {
 }
 ```
 Now, all three of our `MyFirstThread` instances will start exactly as they did before, but we didn't have to explicitly `Initialize()` each of them separately.
+
+### Automated Garbage Collection
+It is quite common to have `Thread`s with non-permanent lifetimes, such as *Worker Threads* (less common with microcontrollers, but not unheard of).
+
+*ESPressio* Threads provides a means of leveraging fully-automatic *Garbage Collection* for your `Thread`s once they've `Terminated`.
+
+Let's modify our previous example to take advantage of it, and let's add some *finality* to `MyFirstThread` so that it will automatically `Terminate` when it has done its "work":
+```cpp
+class MyFirstThread : public Thread {
+    private:
+        int _counter = 0;
+    protected:
+        void OnInitialization() override {
+            // Anything we need to do here prior to the Thread's Loop sstarting
+        }
+
+        void OnLoop() override {
+            _counter++; // Increment the counter
+
+            // Let's display some information about our Thread...
+            Serial.printf("MyFirstThread::OnLoop() - Thread #%d - On CPU %d, Counter = %d", GetThreadID(), xPortGetCoreID(), _counter);
+
+            if (_counter == 10) {
+                Termiante(); // This will Terminate the Thread
+            }
+
+            delay(1000); // Let's let this Thread wait for 1 second before it loops around again
+        }
+    public:
+        MyFirstThread(bool freeOnTerminate) : Thread(freeOnTerminate) {}
+};
+```
+Okay, so our `MyFirstThread` class has been updated so that it will automatically `Terminate` when the `_counter` reaches `10`.
+
+I've also added a public *Constructor* to expose the overloaded constructor on `Thread`, which provides the optional `freeOnTerminate` parameter we shall be using in a moment.
+
+Let's modify the way we define the *Instances* of `MyFirstThread` so that we can leverage Automatic Garbage Collection:
+```cpp
+MyFirstThread* thread1, thread2, thread3;
+
+void setup() {
+    Serial.begin(115200);
+
+    // Create our Threads (passing `true` to the constructor for "FreeOnTerminate")
+    thread1 = new MyFirstThread(true);
+    thread2 = new MyFirstThread(true);
+    thread3 = new MyFirstThread(true);
+
+    delay(500); // Small delay just so that the thread doesn't start before the Serial Monitor is ready
+
+    Manager::Initialize();
+}
+```
+Now, when you run this program, each of the three instances of `MyFirstThread` will loop precisely 10 times, output their entries to the Serial console, then each of them will automatically `Terminate()`.
+
+At that moment, the *Automatic Garbage Collector* will be awoken, and will take responsibility for purging the unwanted instances from our device's active memory.
+
+>It is important to understand when it's appropriate to take advantage of Automatic Garbage Collection, and when you should manually manage the memory of your `Thread`s.
+
+It's also good to know that the *Automatic Garbage Collector* is a "good citizen" and doesn't take up undue memory or clock cycles when it doesn't have any garbage to collect.
