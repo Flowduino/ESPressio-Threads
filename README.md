@@ -35,13 +35,13 @@ Please see the [![License](https://img.shields.io/badge/License-Apache%202.0-blu
 Every type/variable/constant/etc. related to *ESPressio* Threads are located within the `Threads` submaspace of the `ESPressio` parent namespace.
 
 The namespace provides the following (*click on any declaration to navigate to more info*):
-- [`ESPressio::Threads::IThread`](ithread)
-- [`ESPressio::Threads::Thread`](thread)
-- [`ESPressio::Threads::Manager`](threadmanager)
-- [`ESPressio::Threads::GarbageCollector`](garbagecollector)
-- [`ESPressio::Threads::IThreadSafe`](ithreadsafe)
-- [`ESPressio::Threads::Mutex`](mutex)
-- [`ESPressio::Threads::ReadWriteMutex`](readwritemutex)
+- [`ESPressio::Threads::IThread`](#ithread)
+- [`ESPressio::Threads::Thread`](#thread)
+- [`ESPressio::Threads::Manager`](#threadmanager)
+- [`ESPressio::Threads::GarbageCollector`](#garbagecollector)
+- [`ESPressio::Threads::IThreadSafe`](#ithreadsafe)
+- [`ESPressio::Threads::Mutex`](#mutex)
+- [`ESPressio::Threads::ReadWriteMutex`](#readwritemutex)
 
 ## Platformio.ini
 You can quickly and easily add this library to your project in PlatformIO by simply including the following in your `platformio.ini` file:
@@ -59,7 +59,7 @@ This section of the README will be updated concurrently with each release.
 Threads enable us to perform concurrent and/or parallel processing on our microcontroller devices.
 In the case of multi-core microcontrollers, such as the ESP32, we can achieve true concurrent execution by using the components provided here in the *ESPressio* Thread Library.
 
-By default, when an instance of a [`Thread`](thread) descendant is created, presuming that you do not modify by calling `SetCoreID()` prior to initializing the instance, the Thread [`Manager`](threadmanager) will automatically allocate the Thread to the next CPU Core.
+By default, when an instance of a [`Thread`](#thread) descendant is created, presuming that you do not modify by calling `SetCoreID()` prior to initializing the instance, the Thread [`Manager`](#threadmanager) will automatically allocate the Thread to the next CPU Core.
 
 For example, by default, your first Thread Instance will occupy *CPU 0*, your second will occupy *CPU 1*, your third will co-occupy *CPU 0*.
 
