@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ESPressio_Thread.hpp"
-#include "ThreadManager.hpp"
+#include "ESPressio_ThreadManager.hpp"
 
 namespace ESPressio {
 
