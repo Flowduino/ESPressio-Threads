@@ -14,7 +14,7 @@ namespace ESPressio {
         }
 
         Thread::~Thread() {
-            if (_onDestroy != nullptr) { _onDestroy(this); }
+            DoNotifyDestroy();
             SetThreadState(ThreadState::Destroyed);
             ThreadManager::GetInstance()->RemoveThread(this);
             if (_taskHandle != nullptr) { vTaskDelete(_taskHandle); }
