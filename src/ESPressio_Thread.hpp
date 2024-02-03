@@ -26,6 +26,7 @@ namespace ESPressio {
                 
                 /// `TOnThreadEvent` is a function type that can be used to handle Thread events.
                 using TOnThreadEvent = std::function<void(IThread*)>;
+                /// `TOnThreadStateChangeEvent` is a function type that can be used to handle Thread state change events.
                 using TOnThreadStateChangeEvent = std::function<void(IThread*, ThreadState, ThreadState)>;
 
             // Members

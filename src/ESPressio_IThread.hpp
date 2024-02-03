@@ -5,7 +5,11 @@
 #include <cstdint>
 #include <functional>
 
+#include <ESPressio_Object.hpp>
+
 namespace ESPressio {
+
+    using namespace Base;
 
     namespace Threads {
 
@@ -23,7 +27,7 @@ namespace ESPressio {
             `IThread` is a common Interface for all Thread Types provided by this library.
             You can use it to reference any Thread Type without knowing the actual type.
         */
-        class IThread {
+        class IThread : public Object {
             public:
             // Methods
 
