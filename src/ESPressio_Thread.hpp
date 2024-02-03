@@ -169,23 +169,23 @@ namespace ESPressio {
 
             // Callback Getters
 
-                std::function<void(IThread*)> GetOnInitialized() {
+                std::function<void(IThread*)> GetOnInitialize() {
                     return _onInitialize;
                 }
 
-                std::function<void(IThread*)> GetOnStarted() {
+                std::function<void(IThread*)> GetOnStarte() {
                     return _onStarte;
                 }
 
-                std::function<void(IThread*)> GetOnPaused() {
+                std::function<void(IThread*)> GetOnPause() {
                     return _onPause;
                 }
 
-                std::function<void(IThread*)> GetOnTerminated() {
+                std::function<void(IThread*)> GetOnTerminate() {
                     return _onTerminate;
                 }
 
-                std::function<void(IThread*)> GetOnDestroying() {
+                std::function<void(IThread*)> GetOnDestroy() {
                     return _onDestroy;
                 }
 
@@ -213,23 +213,23 @@ namespace ESPressio {
 
             // Callback Setters
 
-                void SetOnInitialized(std::function<void(IThread*)> value) {
+                void SetOnInitialize(std::function<void(IThread*)> value) {
                     _onInitialize = value;
                 }
 
-                void SetOnStarted(std::function<void(IThread*)> value) {
+                void SetOnStarte(std::function<void(IThread*)> value) {
                     _onStarte = value;
                 }
 
-                void SetOnPaused(std::function<void(IThread*)> value) {
+                void SetOnPause(std::function<void(IThread*)> value) {
                     _onPause = value;
                 }
 
-                void SetOnTerminated(std::function<void(IThread*)> value) {
+                void SetOnTerminate(std::function<void(IThread*)> value) {
                     _onTerminate = value;
                 }
 
-                void SetOnDestroying(std::function<void(IThread*)> value) {
+                void SetOnDestroy(std::function<void(IThread*)> value) {
                     _onDestroy = value;
                 }
         };

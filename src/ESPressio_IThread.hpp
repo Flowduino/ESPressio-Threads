@@ -77,19 +77,19 @@ namespace ESPressio {
             // Callback Getters
 
                 /// `GetOnInitialized` returns the callback to be invoked when the Thread is initialized.
-                virtual std::function<void(IThread*)> GetOnInitialized() = 0;
+                virtual std::function<void(IThread*)> GetOnInitialize() = 0;
 
                 /// `GetOnStarted` returns the callback to be invoked when the Thread is started.
-                virtual std::function<void(IThread*)> GetOnStarted() = 0;
+                virtual std::function<void(IThread*)> GetOnStarte() = 0;
 
                 /// `GetOnPaused` returns the callback to be invoked when the Thread is paused.
-                virtual std::function<void(IThread*)> GetOnPaused() = 0;
+                virtual std::function<void(IThread*)> GetOnPause() = 0;
 
                 /// `GetOnTerminated` returns the callback to be invoked when the Thread is terminated.
-                virtual std::function<void(IThread*)> GetOnTerminated() = 0;
+                virtual std::function<void(IThread*)> GetOnTerminate() = 0;
 
                 /// `GetOnDestroying` returns the callback to be invoked when the Thread is being destroyed.
-                virtual std::function<void(IThread*)> GetOnDestroying() = 0;
+                virtual std::function<void(IThread*)> GetOnDestroy() = 0;
 
             // Setters
 
@@ -109,23 +109,23 @@ namespace ESPressio {
 
                 /// `SetOnInitialized` sets the callback to be invoked when the Thread is initialized.
                 /// The callback function takes `IThread*` and ideally named `sender`.
-                virtual void SetOnInitialized(std::function<void(IThread*)>) = 0;
+                virtual void SetOnInitialize(std::function<void(IThread*)>) = 0;
 
                 /// `SetOnStarted` sets the callback to be invoked when the Thread is started.
                 /// The callback function takes `IThread*` and ideally named `sender`.
-                virtual void SetOnStarted(std::function<void(IThread*)>) = 0;
+                virtual void SetOnStarte(std::function<void(IThread*)>) = 0;
 
                 /// `SetOnPaused` sets the callback to be invoked when the Thread is paused.
                 /// The callback function takes `IThread*` and ideally named `sender`.
-                virtual void SetOnPaused(std::function<void(IThread*)>) = 0;
+                virtual void SetOnPause(std::function<void(IThread*)>) = 0;
 
                 /// `SetOnTerminated` sets the callback to be invoked when the Thread is terminated.
                 /// The callback function takes `IThread*` and ideally named `sender`.
-                virtual void SetOnTerminated(std::function<void(IThread*)>) = 0;
+                virtual void SetOnTerminate(std::function<void(IThread*)>) = 0;
 
                 /// `SetOnDestroying` sets the callback to be invoked when the Thread is being destroyed.
                 /// The callback function takes `IThread*` and ideally named `sender`.
-                virtual void SetOnDestroying(std::function<void(IThread*)>) = 0;
+                virtual void SetOnDestroy(std::function<void(IThread*)>) = 0;
         };
 
     }
