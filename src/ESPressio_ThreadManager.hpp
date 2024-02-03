@@ -56,6 +56,18 @@ namespace ESPressio {
                     });
                 }
 
+                /// Removes a Thread from the `ThreadManager` using its ID.
+                void RemoveThread(uint8_t threadID) {
+                    _threads.WithWriteLock([threadID](std::vector<IThread*>& threads) {
+                        for (auto thread : threads) {
+                            if (thread->GetThreadID() == threadID) {
+                                threads.erase(std::remove(threads.begin(), threads.end(), thread), threads.end());
+                                break;
+                            }
+                        }
+                    });
+                }
+
                 /// Iterates through all Threads in the `ThreadManager`.
                 void ForEachThread(std::function<void(IThread*)> callback) {
                     _threads.WithWriteLock([callback](std::vector<IThread*>& threads) {
@@ -94,7 +106,8 @@ namespace ESPressio {
                         }
                         // Now iterate deleteThreads and remove them from the threads list
                         for (auto thread : deleteThreads) {
-                            free(thread);
+                            threads.erase(std::remove(threads.begin(), threads.end(), thread), threads.end());
+                            delete thread;
                         }
                     });
                 }

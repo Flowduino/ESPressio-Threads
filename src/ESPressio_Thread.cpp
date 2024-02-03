@@ -9,24 +9,19 @@ namespace ESPressio {
 
         // Define the Constructor and Destructor of `Thread` here
         Thread::Thread() : _threadID(0) {
-            _threadID = ThreadManager::GetInstance()->GetThreadCount();
+            _threadID = ThreadManager::GetInstance()->GetThreadCount() + 1;
             SetCoreID(ThreadManager::GetInstance()->AddThread(this));
         }
 
         Thread::~Thread() {
             DoNotifyDestroy();
             SetThreadState(ThreadState::Destroyed);
-            ThreadManager::GetInstance()->RemoveThread(this);
-            if (_taskHandle != nullptr) { vTaskDelete(_taskHandle); }
+            _deleteTask();
         }
 
-        // Define the Terminate method of `Thread` here
-        void Thread::Terminate() {
-            SetThreadState(ThreadState::Terminated);
-            if (_onTerminate != nullptr) { _onTerminate(this); }
+        void Thread::GarbageCollect() {
             if (GetFreeOnTerminate()) { ThreadGarbageCollector::GetInstance()->CleanUp(); } // Automatically trigger the Garbage Collector
         }
-
     }
 
 }

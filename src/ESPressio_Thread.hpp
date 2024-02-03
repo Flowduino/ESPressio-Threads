@@ -34,18 +34,26 @@ namespace ESPressio {
                 ReadWriteMutex<ThreadState> _threadState = ReadWriteMutex<ThreadState>(ThreadState::Uninitialized);
                 ReadWriteMutex<bool> _freeOnTerminate = ReadWriteMutex<bool>(false);
                 ReadWriteMutex<bool> _startOnInitialize = ReadWriteMutex<bool>(true);
-                TaskHandle_t _taskHandle = nullptr; // SHOULD be Atomic!
+                TaskHandle_t _taskHandle = NULL; // SHOULD be Atomic!
                 ReadWriteMutex<uint32_t> _stackSize = ReadWriteMutex<uint32_t>(ESPRESSIO_THREAD_DEFAULT_STACK_SIZE);
                 ReadWriteMutex<UBaseType_t> _priority = ReadWriteMutex<UBaseType_t>(2);
                 ReadWriteMutex<BaseType_t> _coreID = ReadWriteMutex<BaseType_t>(0);
             // Callbacks
                 TOnThreadEvent _onInitialize = nullptr;
-                TOnThreadEvent _onStarte = nullptr;
+                TOnThreadEvent _onStart = nullptr;
                 TOnThreadEvent _onPause = nullptr;
                 TOnThreadEvent _onTerminate = nullptr;
                 TOnThreadStateChangeEvent _onStateChange = nullptr;
 
             // Methods
+                void _deleteTask() {
+                    if (_taskHandle != NULL) {
+                        TaskHandle_t handle = _taskHandle;
+                        _taskHandle = NULL;
+                        vTaskDelete(handle);
+                    }
+                }
+                
                 void _loop() {
                     for (;;) {
                         switch (_threadState.Get()) {
@@ -58,9 +66,7 @@ namespace ESPressio {
                                 OnLoop();
                                 break;
                             case ThreadState::Terminating:
-                                SetThreadState(ThreadState::Terminated);
                             case ThreadState::Terminated:
-                                if (_taskHandle != nullptr) { vTaskDelete(_taskHandle); }
                                 return;
                         }
                     }
@@ -82,8 +88,27 @@ namespace ESPressio {
                 
                 void SetThreadState(ThreadState state) {
                     ThreadState oldState = _threadState.Get();
+                    if (oldState == state) { return; }
                     _threadState.Set(state);
                     if (_onStateChange != nullptr) { _onStateChange(this, oldState, state); }
+                    switch (state) {
+                        case ThreadState::Terminated:
+                            GarbageCollect();
+                            break;
+                        case ThreadState::Terminating:
+                            if (_onTerminate != nullptr) { _onTerminate(this); }
+                            break;
+                        case ThreadState::Paused:
+                            if (_onPause != nullptr) { _onPause(this); }
+                            break;
+                        case ThreadState::Running:
+                            if (_onStart != nullptr) { _onStart(this); }
+                            break;
+                        case ThreadState::Initialized:
+                            if (_onInitialize != nullptr) { _onInitialize(this); }
+                            break;
+                    
+                    }
                 }
             public:
 
@@ -98,24 +123,29 @@ namespace ESPressio {
                 ~Thread();
 
             // Methods
+                void GarbageCollect();
+
                 void Initialize() {
-                    if (_taskHandle != nullptr) { vTaskDelete(_taskHandle); } // Delete any existing task handle if it's there!
-                    // Convert value of GetThreadID() to const char* for xTaskCreatePinnedToCore
-                    char threadIDStr[3];
-                    itoa(GetThreadID(), threadIDStr, 10);
-                    
-                    xTaskCreatePinnedToCore(
-                        [](void* parameter) {
-                            Thread* instance = static_cast<Thread*>(parameter);
-                            instance->_loop();
-                        },
-                        threadIDStr,                /* Name of the task. */
-                        GetStackSize(),                   /* Stack size of the task. */
-                        this,                    /* Parameter of the task (class instance). */
-                        GetPriority(),                       /* Priority of the task. */
-                        &_taskHandle,            /* Task handle to keep track of the created task. */
-                        GetCoreID()              /* Pin task to core 0. */
-                    );
+                    if (_taskHandle != NULL) { vTaskResume(_taskHandle); } // Resume existing Task if it exists...
+                    else { // ... or Create a new Task if it doesn't!
+                        String threadIDStr = "thread" + String(GetThreadID());
+                        xTaskCreatePinnedToCore(
+                            [](void* parameter) {
+                                Thread* instance = static_cast<Thread*>(parameter);
+                                if (instance != nullptr) {
+                                    instance->_loop();
+                                    instance->SetThreadState(ThreadState::Terminated);
+                                }
+                                vTaskSuspend(NULL);
+                            },
+                            threadIDStr.c_str(),
+                            GetStackSize(),
+                            this,          
+                            GetPriority(), 
+                            &_taskHandle,  
+                            GetCoreID()    
+                        );
+                    }
                     OnInitialization(); // Invoke any custom initialization behaviour before we change the state of the Thread
                     // Check if the state was changed to Terminating or Terminate during the OnInitialization() method
                     if (GetThreadState() == ThreadState::Terminating || GetThreadState() == ThreadState::Terminated) {
@@ -126,14 +156,16 @@ namespace ESPressio {
                     if (_onInitialize != nullptr) { _onInitialize(this); }
                 }
 
-                void Terminate();
+                void Terminate() {
+                    SetThreadState(ThreadState::Terminating);
+                }
 
                 void Start() {
                     if (GetThreadState() == ThreadState::Terminated) {
                         Initialize();
                     }
                     SetThreadState(ThreadState::Running);
-                    if (_onStarte != nullptr) { _onStarte(this); }
+                    if (_onStart != nullptr) { _onStart(this); }
                 }
 
                 void Pause() {
@@ -178,7 +210,7 @@ namespace ESPressio {
                 }
 
                 std::function<void(IThread*)> GetOnStart() {
-                    return _onStarte;
+                    return _onStart;
                 }
 
                 std::function<void(IThread*)> GetOnPause() {
@@ -222,7 +254,7 @@ namespace ESPressio {
                 }
 
                 void SetOnStart(std::function<void(IThread*)> value) {
-                    _onStarte = value;
+                    _onStart = value;
                 }
 
                 void SetOnPause(std::function<void(IThread*)> value) {
