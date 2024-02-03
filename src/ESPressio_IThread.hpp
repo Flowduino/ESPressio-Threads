@@ -91,6 +91,9 @@ namespace ESPressio {
                 /// `GetOnDestroying` returns the callback to be invoked when the Thread is being destroyed.
                 virtual std::function<void(IThread*)> GetOnDestroy() = 0;
 
+                /// `GetOnStateChange` returns the callback to be invoked when the Thread's state changes.
+                virtual std::function<void(IThread*, ThreadState, ThreadState)> GetOnStateChange() = 0;
+
             // Setters
 
                 /// `SetCoreID` sets the ID of the Core the Thread should run on.
@@ -126,6 +129,10 @@ namespace ESPressio {
                 /// `SetOnDestroying` sets the callback to be invoked when the Thread is being destroyed.
                 /// The callback function takes `IThread*` and ideally named `sender`.
                 virtual void SetOnDestroy(std::function<void(IThread*)>) = 0;
+
+                /// `SetOnStateChange` sets the callback to be invoked when the Thread's state changes.
+                /// The callback function takes `IThread*` and ideally named `sender`, `ThreadState` for the previous state and `ThreadState` for the new state.
+                virtual void SetOnStateChange(std::function<void(IThread*, ThreadState, ThreadState)>) = 0;
         };
 
     }

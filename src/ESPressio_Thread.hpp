@@ -26,6 +26,7 @@ namespace ESPressio {
                 
                 /// `TOnThreadEvent` is a function type that can be used to handle Thread events.
                 using TOnThreadEvent = std::function<void(IThread*)>;
+                using TOnThreadStateChangeEvent = std::function<void(IThread*, ThreadState, ThreadState)>;
 
             // Members
                 uint8_t _threadID; // This is idempotent so doesn't need a `Mutex` wrapper.
@@ -42,6 +43,7 @@ namespace ESPressio {
                 TOnThreadEvent _onPause = nullptr;
                 TOnThreadEvent _onTerminate = nullptr;
                 TOnThreadEvent _onDestroy = nullptr;
+                TOnThreadStateChangeEvent _onStateChange = nullptr;
 
             // Methods
                 void _loop() {
@@ -79,7 +81,9 @@ namespace ESPressio {
             // Setters (Internal)
                 
                 void SetThreadState(ThreadState state) {
+                    ThreadState oldState = _threadState.Get();
                     _threadState.Set(state);
+                    if (_onStateChange != nullptr) { _onStateChange(this, oldState, state); }
                 }
             public:
 
@@ -189,6 +193,10 @@ namespace ESPressio {
                     return _onDestroy;
                 }
 
+                std::function<void(IThread*, ThreadState, ThreadState)> GetOnStateChange() {
+                    return _onStateChange;
+                }
+
             // Setters
 
                 void SetCoreID(BaseType_t value) {
@@ -231,6 +239,10 @@ namespace ESPressio {
 
                 void SetOnDestroy(std::function<void(IThread*)> value) {
                     _onDestroy = value;
+                }
+
+                void SetOnStateChange(std::function<void(IThread*, ThreadState, ThreadState)> value) {
+                    _onStateChange = value;
                 }
         };
 
