@@ -190,10 +190,6 @@ namespace ESPressio {
                     return _onTerminate;
                 }
 
-                std::function<void(IThread*)> GetOnDestroy() {
-                    return _onDestroy;
-                }
-
                 std::function<void(IThread*, ThreadState, ThreadState)> GetOnStateChange() {
                     return _onStateChange;
                 }
@@ -236,10 +232,6 @@ namespace ESPressio {
 
                 void SetOnTerminate(std::function<void(IThread*)> value) {
                     _onTerminate = value;
-                }
-
-                void SetOnDestroy(std::function<void(IThread*)> value) {
-                    _onDestroy = value;
                 }
 
                 void SetOnStateChange(std::function<void(IThread*, ThreadState, ThreadState)> value) {
