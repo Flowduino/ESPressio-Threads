@@ -80,7 +80,7 @@ namespace ESPressio {
                 virtual std::function<void(IThread*)> GetOnInitialize() = 0;
 
                 /// `GetOnStarted` returns the callback to be invoked when the Thread is started.
-                virtual std::function<void(IThread*)> GetOnStarte() = 0;
+                virtual std::function<void(IThread*)> GetOnStart() = 0;
 
                 /// `GetOnPaused` returns the callback to be invoked when the Thread is paused.
                 virtual std::function<void(IThread*)> GetOnPause() = 0;
@@ -113,7 +113,7 @@ namespace ESPressio {
 
                 /// `SetOnStarted` sets the callback to be invoked when the Thread is started.
                 /// The callback function takes `IThread*` and ideally named `sender`.
-                virtual void SetOnStarte(std::function<void(IThread*)>) = 0;
+                virtual void SetOnStart(std::function<void(IThread*)>) = 0;
 
                 /// `SetOnPaused` sets the callback to be invoked when the Thread is paused.
                 /// The callback function takes `IThread*` and ideally named `sender`.

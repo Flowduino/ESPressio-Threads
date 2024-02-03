@@ -173,7 +173,7 @@ namespace ESPressio {
                     return _onInitialize;
                 }
 
-                std::function<void(IThread*)> GetOnStarte() {
+                std::function<void(IThread*)> GetOnStart() {
                     return _onStarte;
                 }
 
@@ -217,7 +217,7 @@ namespace ESPressio {
                     _onInitialize = value;
                 }
 
-                void SetOnStarte(std::function<void(IThread*)> value) {
+                void SetOnStart(std::function<void(IThread*)> value) {
                     _onStarte = value;
                 }
 
