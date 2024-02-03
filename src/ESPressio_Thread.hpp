@@ -43,7 +43,6 @@ namespace ESPressio {
                 TOnThreadEvent _onStarte = nullptr;
                 TOnThreadEvent _onPause = nullptr;
                 TOnThreadEvent _onTerminate = nullptr;
-                TOnThreadEvent _onDestroy = nullptr;
                 TOnThreadStateChangeEvent _onStateChange = nullptr;
 
             // Methods
