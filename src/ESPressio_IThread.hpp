@@ -3,6 +3,7 @@
 // #define CORE_THREADING_DEBUG // Uncomment this to explicitly enable debugging for the threading module
 #include <Arduino.h>
 #include <cstdint>
+#include <functional>
 
 namespace ESPressio {
 
@@ -29,16 +30,12 @@ namespace ESPressio {
                 /// `Initialize` is invoked automatically for all Threads when the `ThreadManager` is initialized in your `main()` (or `setup()` for MCU projects) function.
                 virtual void Initialize() = 0;
 
-                /*
-                    `Terminate` is invoked automatically for all Threads when the `ThreadManager` is terminated in your `main()` (or `loop()` for MCU projects) function.
-                    You can, however, invoke it manually to terminate a Thread at any time!
-                */
+                /// `Terminate` is invoked automatically for all Threads when the `ThreadManager` is terminated in your `main()` (or `loop()` for MCU projects) function.
+                /// You can, however, invoke it manually to terminate a Thread at any time!
                 virtual void Terminate() = 0;
 
-                /*
-                    `Start` will start the Thread loop if it is not already running.
-                    It will also Resume the thread if it is `Paused`.
-                */
+                /// `Start` will start the Thread loop if it is not already running.
+                /// It will also Resume the thread if it is `Paused`.
                 virtual void Start() = 0;
 
                 /// `Pause` will pause the Thread loop if it is running.
@@ -68,6 +65,7 @@ namespace ESPressio {
                 virtual bool GetStartOnInitialize() = 0;
 
             // Utility Getters
+
                 bool IsRunning() { return GetThreadState() == ThreadState::Running; }
 
                 bool IsPaused() { return GetThreadState() == ThreadState::Paused; }
@@ -76,7 +74,25 @@ namespace ESPressio {
 
                 bool IsTerminated() { return GetThreadState() == ThreadState::Terminated; }
 
+            // Callback Getters
+
+                /// `GetOnInitialized` returns the callback to be invoked when the Thread is initialized.
+                virtual std::function<void(IThread*)> GetOnInitialized() = 0;
+
+                /// `GetOnStarted` returns the callback to be invoked when the Thread is started.
+                virtual std::function<void(IThread*)> GetOnStarted() = 0;
+
+                /// `GetOnPaused` returns the callback to be invoked when the Thread is paused.
+                virtual std::function<void(IThread*)> GetOnPaused() = 0;
+
+                /// `GetOnTerminated` returns the callback to be invoked when the Thread is terminated.
+                virtual std::function<void(IThread*)> GetOnTerminated() = 0;
+
+                /// `GetOnDestroying` returns the callback to be invoked when the Thread is being destroyed.
+                virtual std::function<void(IThread*)> GetOnDestroying() = 0;
+
             // Setters
+
                 /// `SetCoreID` sets the ID of the Core the Thread should run on.
                 virtual void SetCoreID(BaseType_t value) = 0;
 
@@ -88,6 +104,28 @@ namespace ESPressio {
 
                 /// `SetFreeOnTerminate` defines whether this Thread should be freed from memory when it is terminated. 
                 virtual void SetFreeOnTerminate(bool value) = 0;
+
+            // Callback Setters
+
+                /// `SetOnInitialized` sets the callback to be invoked when the Thread is initialized.
+                /// The callback function takes `IThread*` and ideally named `sender`.
+                virtual void SetOnInitialized(std::function<void(IThread*)>) = 0;
+
+                /// `SetOnStarted` sets the callback to be invoked when the Thread is started.
+                /// The callback function takes `IThread*` and ideally named `sender`.
+                virtual void SetOnStarted(std::function<void(IThread*)>) = 0;
+
+                /// `SetOnPaused` sets the callback to be invoked when the Thread is paused.
+                /// The callback function takes `IThread*` and ideally named `sender`.
+                virtual void SetOnPaused(std::function<void(IThread*)>) = 0;
+
+                /// `SetOnTerminated` sets the callback to be invoked when the Thread is terminated.
+                /// The callback function takes `IThread*` and ideally named `sender`.
+                virtual void SetOnTerminated(std::function<void(IThread*)>) = 0;
+
+                /// `SetOnDestroying` sets the callback to be invoked when the Thread is being destroyed.
+                /// The callback function takes `IThread*` and ideally named `sender`.
+                virtual void SetOnDestroying(std::function<void(IThread*)>) = 0;
         };
 
     }

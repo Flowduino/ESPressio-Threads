@@ -14,6 +14,7 @@ namespace ESPressio {
         }
 
         Thread::~Thread() {
+            if (_onDestroy != nullptr) { _onDestroy(this); }
             SetThreadState(ThreadState::Destroyed);
             ThreadManager::GetInstance()->RemoveThread(this);
             if (_taskHandle != nullptr) { vTaskDelete(_taskHandle); }
@@ -22,6 +23,7 @@ namespace ESPressio {
         // Define the Terminate method of `Thread` here
         void Thread::Terminate() {
             SetThreadState(ThreadState::Terminated);
+            if (_onTerminate != nullptr) { _onTerminate(this); }
             if (GetFreeOnTerminate()) { ThreadGarbageCollector::GetInstance()->CleanUp(); } // Automatically trigger the Garbage Collector
         }
 

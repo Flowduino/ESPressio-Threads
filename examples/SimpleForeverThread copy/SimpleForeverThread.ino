@@ -6,9 +6,8 @@
 
 #include <Arduino.h>
 
-#include "ESPressio_IThread.hpp" // This gives us access to the `IThread` interface.
-#include "ESPressio_Thread.hpp" // This gives us access to our `Thread` base class.
-#include "ESPressio_ThreadManager.hpp" // This gives us access to the `ThreadManager` class.
+#include "ESPressio_Thread.hpp"
+#include "ESPressio_ThreadManager.hpp"
 
 using namespace ESPressio::Threads;
 
@@ -25,13 +24,9 @@ class DemoThread : public Thread {
 DemoThread thread;
 
 void setup() {
-    Serial.begin(115200); // Start the Serial Monitor.
+    Serial.begin(115200);
 
-    thread.SetStartOnInitialize(true); // This will start the thread as soon as it's initialized. (true is the default, but we're setting it here for clarity.)
+    thread.SetStartOnInitialize(true);
 
     ThreadManager::Initialize(); // This will initialize ALL Thread instances in your code!
-}
-
-void loop() {
-    // You can still use your main loop as normal, if you want to!
 }

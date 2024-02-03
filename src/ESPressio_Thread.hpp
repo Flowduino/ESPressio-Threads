@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include "ESPressio_IThread.hpp"
 #include "ESPressio_ThreadSafe.hpp"
 
@@ -20,6 +22,11 @@ namespace ESPressio {
         */
         class Thread : public IThread {
             private:
+            // Type Definitions
+                
+                /// `TOnThreadEvent` is a function type that can be used to handle Thread events.
+                using TOnThreadEvent = std::function<void(IThread*)>;
+
             // Members
                 uint8_t _threadID; // This is idempotent so doesn't need a `Mutex` wrapper.
                 ReadWriteMutex<ThreadState> _threadState = ReadWriteMutex<ThreadState>(ThreadState::Uninitialized);
@@ -29,6 +36,12 @@ namespace ESPressio {
                 ReadWriteMutex<uint32_t> _stackSize = ReadWriteMutex<uint32_t>(ESPRESSIO_THREAD_DEFAULT_STACK_SIZE);
                 ReadWriteMutex<UBaseType_t> _priority = ReadWriteMutex<UBaseType_t>(2);
                 ReadWriteMutex<BaseType_t> _coreID = ReadWriteMutex<BaseType_t>(0);
+            // Callbacks
+                TOnThreadEvent _onInitialize = nullptr;
+                TOnThreadEvent _onStarte = nullptr;
+                TOnThreadEvent _onPause = nullptr;
+                TOnThreadEvent _onTerminate = nullptr;
+                TOnThreadEvent _onDestroy = nullptr;
 
             // Methods
                 void _loop() {
@@ -69,6 +82,8 @@ namespace ESPressio {
                     _threadState.Set(state);
                 }
             public:
+
+
             // Constructor/Destructor
                 Thread();
 
@@ -104,6 +119,7 @@ namespace ESPressio {
                         return;
                     }
                     SetThreadState(GetStartOnInitialize() ? ThreadState::Running : ThreadState::Initialized);
+                    if (_onInitialize != nullptr) { _onInitialize(this); }
                 }
 
                 void Terminate();
@@ -113,10 +129,12 @@ namespace ESPressio {
                         Initialize();
                     }
                     SetThreadState(ThreadState::Running);
+                    if (_onStarte != nullptr) { _onStarte(this); }
                 }
 
                 void Pause() {
                     SetThreadState(ThreadState::Paused);
+                    if (_onPause != nullptr) { _onPause(this); }
                 }
 
             // Getters
@@ -149,6 +167,28 @@ namespace ESPressio {
                     return _startOnInitialize.Get();
                 }
 
+            // Callback Getters
+
+                std::function<void(IThread*)> GetOnInitialized() {
+                    return _onInitialize;
+                }
+
+                std::function<void(IThread*)> GetOnStarted() {
+                    return _onStarte;
+                }
+
+                std::function<void(IThread*)> GetOnPaused() {
+                    return _onPause;
+                }
+
+                std::function<void(IThread*)> GetOnTerminated() {
+                    return _onTerminate;
+                }
+
+                std::function<void(IThread*)> GetOnDestroying() {
+                    return _onDestroy;
+                }
+
             // Setters
 
                 void SetCoreID(BaseType_t value) {
@@ -169,6 +209,28 @@ namespace ESPressio {
 
                 void SetStartOnInitialize(bool value) {
                     _startOnInitialize.Set(value);
+                }
+
+            // Callback Setters
+
+                void SetOnInitialized(std::function<void(IThread*)> value) {
+                    _onInitialize = value;
+                }
+
+                void SetOnStarted(std::function<void(IThread*)> value) {
+                    _onStarte = value;
+                }
+
+                void SetOnPaused(std::function<void(IThread*)> value) {
+                    _onPause = value;
+                }
+
+                void SetOnTerminated(std::function<void(IThread*)> value) {
+                    _onTerminate = value;
+                }
+
+                void SetOnDestroying(std::function<void(IThread*)> value) {
+                    _onDestroy = value;
                 }
         };
 
