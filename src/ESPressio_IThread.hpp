@@ -114,6 +114,9 @@ namespace ESPressio {
                 /// `SetFreeOnTerminate` defines whether this Thread should be freed from memory when it is terminated. 
                 virtual void SetFreeOnTerminate(bool value) = 0;
 
+                /// `SetStartOnInitialize` defines whether this Thread should start running when it is initialized.
+                virtual void SetStartOnInitialize(bool value) = 0;
+
             // Callback Setters
 
                 /// `SetOnDestroy` sets the callback to be invoked when the Thread is destroyed.
