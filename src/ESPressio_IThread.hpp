@@ -28,7 +28,7 @@ namespace ESPressio {
             You can use it to reference any Thread Type without knowing the actual type.
         */
         template <typename Derived>
-        class IThread : public IObject<Derived> {
+        class IThread : public IObject {
             public:
             // Methods
 
