@@ -120,10 +120,7 @@ namespace ESPressio {
                     SetFreeOnTerminate(freeOnTerminate);
                 }
 
-                virtual ~Thread() override {
-                    Terminate();
-                    GarbageCollect();                
-                };
+                virtual ~Thread() override;
 
             // Methods
                 void GarbageCollect();
