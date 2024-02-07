@@ -104,8 +104,9 @@ namespace ESPressio {
 
                 /// Invokes the provided `callback` with the `Mutex` object locked.
                 void WithReadLock(std::function<void(T&)> callback) {
-                    std::lock_guard<std::mutex> lock(_mutex);
+                    _mutex.lock();
                     callback(_value);
+                    _mutex.unlock();
                 }
 
                 void WithWriteLock(std::function<void(T&)> callback) {
