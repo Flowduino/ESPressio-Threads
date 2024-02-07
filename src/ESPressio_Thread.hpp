@@ -20,7 +20,7 @@ namespace ESPressio {
             `Thread` is a class that represents a "standard" Thread in the system.
             It is a wrapper around the system's Thread API, designed to make them much easier to use.
         */
-        class Thread : public IThread {
+        class Thread : public IThread, public Object<Thread> {
             private:
             // Type Definitions
                 
@@ -120,7 +120,10 @@ namespace ESPressio {
                     SetFreeOnTerminate(freeOnTerminate);
                 }
 
-                ~Thread();
+                virtual ~Thread() override {
+                    Terminate();
+                    GarbageCollect();                
+                };
 
             // Methods
                 void GarbageCollect();
