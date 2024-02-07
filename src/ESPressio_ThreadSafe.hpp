@@ -109,8 +109,9 @@ namespace ESPressio {
                 }
 
                 void WithWriteLock(std::function<void(T&)> callback) {
-                    std::lock_guard<std::mutex> lock(_mutex);
+                    _mutex.lock();
                     callback(_value);
+                    _mutex.unlock();
                 }
 
                 /// Invokes the provided `callback` with the `Mutex` object locked, returning `false` if the thread-safe lock was not obtained.
