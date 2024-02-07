@@ -20,7 +20,8 @@ namespace ESPressio {
             `Thread` is a class that represents a "standard" Thread in the system.
             It is a wrapper around the system's Thread API, designed to make them much easier to use.
         */
-        class Thread : public IThread, public Object<Thread> {
+        template <typename Derived>
+        class Thread : public IThread<Derived>, public Object<Derived> {
             private:
             // Type Definitions
                 
