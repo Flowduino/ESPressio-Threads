@@ -11,7 +11,7 @@ namespace ESPressio {
 
     namespace Threads {
 
-        class ThreadGarbageCollector : Thread {
+        class ThreadGarbageCollector : public Thread {
             private:
                 // A semaphore for our loop to wait on (so that it doesn't consume CPU cycles when there's nothing to do).
                 SemaphoreHandle_t _semaphore = xSemaphoreCreateBinary();
