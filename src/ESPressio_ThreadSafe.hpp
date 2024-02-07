@@ -114,7 +114,7 @@ namespace ESPressio {
                 }
 
                 /// Invokes the provided `callback` with the `Mutex` object locked, returning `false` if the thread-safe lock was not obtained.
-                bool TryWithLock(std::function<void(T&)> callback) {
+                bool TryWithReadLock(std::function<void(T&)> callback) {
                     if (!_mutex.try_lock()) {
                         return false;
                     }
