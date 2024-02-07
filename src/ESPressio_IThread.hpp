@@ -31,6 +31,10 @@ namespace ESPressio {
                 typedef std::function<void(IThread*)> ThreadCallback;
                 typedef std::function<void(IThread*, ThreadState, ThreadState)> ThreadStateChangeCallback;
 
+            // Destructor
+
+                virtual ~IThread() {}            
+
             // Methods
 
                 /// `Initialize` is invoked automatically for all Threads when the `ThreadManager` is initialized in your `main()` (or `setup()` for MCU projects) function.
