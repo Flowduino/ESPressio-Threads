@@ -27,14 +27,14 @@ namespace ESPressio {
             `IThread` is a common Interface for all Thread Types provided by this library.
             You can use it to reference any Thread Type without knowing the actual type.
         */
-        class IThread : public Object<IThread> {
+        class IThread {
             public:
             // Destructor
                     
-                    /// The Destructor is declared as `virtual` to ensure that the correct destructor is called when a derived class is destroyed.
-                    virtual ~IThread() {
-                        DoNotifyDestroy();
-                    }
+                /// The Destructor is declared as `virtual` to ensure that the correct destructor is called when a derived class is destroyed.
+                virtual ~IThread() {
+                    DoNotifyDestroy();
+                }
             // Methods
 
                 /// `Initialize` is invoked automatically for all Threads when the `ThreadManager` is initialized in your `main()` (or `setup()` for MCU projects) function.
