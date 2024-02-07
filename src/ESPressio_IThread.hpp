@@ -27,7 +27,6 @@ namespace ESPressio {
             `IThread` is a common Interface for all Thread Types provided by this library.
             You can use it to reference any Thread Type without knowing the actual type.
         */
-        template <typename Derived>
         class IThread : public IObject {
             public:
             // Methods
