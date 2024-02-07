@@ -126,7 +126,7 @@ namespace ESPressio {
             // Methods
                 void GarbageCollect();
 
-                void Initialize() {
+                void Initialize() override {
                     if (_taskHandle != NULL) { vTaskResume(_taskHandle); } // Resume existing Task if it exists...
                     else { // ... or Create a new Task if it doesn't!
                         String threadIDStr = "thread" + String(GetThreadID());
@@ -157,11 +157,11 @@ namespace ESPressio {
                     if (_onInitialize != nullptr) { _onInitialize(this); }
                 }
 
-                void Terminate() {
+                void Terminate() override {
                     SetThreadState(ThreadState::Terminating);
                 }
 
-                void Start() {
+                void Start() override {
                     if (GetThreadState() == ThreadState::Terminated) {
                         Initialize();
                     }
@@ -169,112 +169,112 @@ namespace ESPressio {
                     if (_onStart != nullptr) { _onStart(this); }
                 }
 
-                void Pause() {
+                void Pause() override {
                     SetThreadState(ThreadState::Paused);
                     if (_onPause != nullptr) { _onPause(this); }
                 }
 
             // Getters
 
-                BaseType_t GetCoreID() {
+                BaseType_t GetCoreID() override {
                     return _coreID.Get();
                 }
 
-                uint32_t GetStackSize() {
+                uint32_t GetStackSize() override {
                     return _stackSize.Get();
                 }
 
-                UBaseType_t GetPriority() {
+                UBaseType_t GetPriority() override {
                     return _priority.Get();
                 }
 
-                uint8_t GetThreadID() {
+                uint8_t GetThreadID() override {
                     return _threadID;
                 }
 
-                ThreadState GetThreadState() {
+                ThreadState GetThreadState() override {
                     return _threadState.Get();
                 }
 
-                bool GetFreeOnTerminate() {
+                bool GetFreeOnTerminate() override {
                     return _freeOnTerminate.Get();
                 }
 
-                bool GetStartOnInitialize() {
+                bool GetStartOnInitialize() override {
                     return _startOnInitialize.Get();
                 }
 
             // Callback Getters
 
-                TOnThreadEvent GetOnDestroy() {
+                TOnThreadEvent GetOnDestroy() override {
                     return _onDestroy;
                 }
 
-                TOnThreadEvent GetOnInitialize() {
+                TOnThreadEvent GetOnInitialize() override {
                     return _onInitialize;
                 }
 
-                TOnThreadEvent GetOnStart() {
+                TOnThreadEvent GetOnStart() override {
                     return _onStart;
                 }
 
-                TOnThreadEvent GetOnPause() {
+                TOnThreadEvent GetOnPause() override {
                     return _onPause;
                 }
 
-                TOnThreadEvent GetOnTerminate() {
+                TOnThreadEvent GetOnTerminate() override {
                     return _onTerminate;
                 }
 
-                TOnThreadStateChangeEvent GetOnStateChange() {
+                TOnThreadStateChangeEvent GetOnStateChange() override {
                     return _onStateChange;
                 }
 
             // Setters
 
-                void SetCoreID(BaseType_t value) {
+                void SetCoreID(BaseType_t value) override {
                     _coreID.Set(value);
                 }
 
-                void SetStackSize(uint32_t value) {
+                void SetStackSize(uint32_t value) override {
                     _stackSize.Set(value);
                 }
 
-                void SetPriority(UBaseType_t value) {
+                void SetPriority(UBaseType_t value) override {
                     _priority.Set(value);
                 }
 
-                void SetFreeOnTerminate(bool value) {
+                void SetFreeOnTerminate(bool value) override {
                     _freeOnTerminate.Set(value);
                 }
 
-                void SetStartOnInitialize(bool value) {
+                void SetStartOnInitialize(bool value) override {
                     _startOnInitialize.Set(value);
                 }
 
             // Callback Setters
 
-                void SetOnDestroy(TOnThreadEvent value) {
+                void SetOnDestroy(TOnThreadEvent value) override {
                     _onDestroy = value;
                 }
 
-                void SetOnInitialize(TOnThreadEvent value) {
+                void SetOnInitialize(TOnThreadEvent value) override {
                     _onInitialize = value;
                 }
 
-                void SetOnStart(TOnThreadEvent value) {
+                void SetOnStart(TOnThreadEvent value) override {
                     _onStart = value;
                 }
 
-                void SetOnPause(TOnThreadEvent value) {
+                void SetOnPause(TOnThreadEvent value) override {
                     _onPause = value;
                 }
 
-                void SetOnTerminate(TOnThreadEvent value) {
+                void SetOnTerminate(TOnThreadEvent value) override {
                     _onTerminate = value;
                 }
 
-                void SetOnStateChange(TOnThreadStateChangeEvent value) {
+                void SetOnStateChange(TOnThreadStateChangeEvent value) override {
                     _onStateChange = value;
                 }
         };
