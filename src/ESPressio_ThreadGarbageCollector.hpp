@@ -24,7 +24,7 @@ namespace ESPressio {
                     Start();
                 }
 
-                void OnLoop() {
+                void OnLoop() override {
                     xSemaphoreTake(_semaphore, portMAX_DELAY);
                     // Wait on the semaphore until we're told to clean up.
                     ThreadManager::GetInstance()->CleanUp();
