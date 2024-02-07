@@ -124,7 +124,7 @@ namespace ESPressio {
                 }
 
                 bool TryWithWriteLock(std::function<void(T&)> callback) {
-                    return TryWithLock(callback);
+                    return TryWithReadLock(callback);
                 }
 
                 /// Releases the Lock on the `Mutex` object.
