@@ -26,6 +26,11 @@ namespace ESPressio {
         */
         class IThread  {
             public:
+            // Type Defs
+
+                typedef std::function<void(IThread*)> ThreadCallback;
+                typedef std::function<void(IThread*, ThreadState, ThreadState)> ThreadStateChangeCallback;
+
             // Methods
 
                 /// `Initialize` is invoked automatically for all Threads when the `ThreadManager` is initialized in your `main()` (or `setup()` for MCU projects) function.
@@ -77,20 +82,23 @@ namespace ESPressio {
 
             // Callback Getters
 
+                /// `GetOnDestroy` returns the callback to be invoked when the Thread is destroyed.
+                virtual ThreadCallback GetOnDestroy() = 0;
+
                 /// `GetOnInitialized` returns the callback to be invoked when the Thread is initialized.
-                virtual std::function<void(IThread*)> GetOnInitialize() = 0;
+                virtual ThreadCallback GetOnInitialize() = 0;
 
                 /// `GetOnStarted` returns the callback to be invoked when the Thread is started.
-                virtual std::function<void(IThread*)> GetOnStart() = 0;
+                virtual ThreadCallback GetOnStart() = 0;
 
                 /// `GetOnPaused` returns the callback to be invoked when the Thread is paused.
-                virtual std::function<void(IThread*)> GetOnPause() = 0;
+                virtual ThreadCallback GetOnPause() = 0;
 
                 /// `GetOnTerminated` returns the callback to be invoked when the Thread is terminated.
-                virtual std::function<void(IThread*)> GetOnTerminate() = 0;
+                virtual ThreadCallback GetOnTerminate() = 0;
 
                 /// `GetOnStateChange` returns the callback to be invoked when the Thread's state changes.
-                virtual std::function<void(IThread*, ThreadState, ThreadState)> GetOnStateChange() = 0;
+                virtual ThreadStateChangeCallback GetOnStateChange() = 0;
 
             // Setters
 
@@ -108,25 +116,29 @@ namespace ESPressio {
 
             // Callback Setters
 
+                /// `SetOnDestroy` sets the callback to be invoked when the Thread is destroyed.
+                /// The callback function takes `IThread*` and ideally named `sender`.
+                virtual void SetOnDestroy(ThreadCallback) = 0;
+
                 /// `SetOnInitialized` sets the callback to be invoked when the Thread is initialized.
                 /// The callback function takes `IThread*` and ideally named `sender`.
-                virtual void SetOnInitialize(std::function<void(IThread*)>) = 0;
+                virtual void SetOnInitialize(ThreadCallback) = 0;
 
                 /// `SetOnStarted` sets the callback to be invoked when the Thread is started.
                 /// The callback function takes `IThread*` and ideally named `sender`.
-                virtual void SetOnStart(std::function<void(IThread*)>) = 0;
+                virtual void SetOnStart(ThreadCallback) = 0;
 
                 /// `SetOnPaused` sets the callback to be invoked when the Thread is paused.
                 /// The callback function takes `IThread*` and ideally named `sender`.
-                virtual void SetOnPause(std::function<void(IThread*)>) = 0;
+                virtual void SetOnPause(ThreadCallback) = 0;
 
                 /// `SetOnTerminated` sets the callback to be invoked when the Thread is terminated.
                 /// The callback function takes `IThread*` and ideally named `sender`.
-                virtual void SetOnTerminate(std::function<void(IThread*)>) = 0;
+                virtual void SetOnTerminate(ThreadCallback) = 0;
 
                 /// `SetOnStateChange` sets the callback to be invoked when the Thread's state changes.
                 /// The callback function takes `IThread*` and ideally named `sender`, `ThreadState` for the previous state and `ThreadState` for the new state.
-                virtual void SetOnStateChange(std::function<void(IThread*, ThreadState, ThreadState)>) = 0;
+                virtual void SetOnStateChange(ThreadStateChangeCallback) = 0;
         };
 
     }

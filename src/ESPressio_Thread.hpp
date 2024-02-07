@@ -39,6 +39,7 @@ namespace ESPressio {
                 ReadWriteMutex<UBaseType_t> _priority = ReadWriteMutex<UBaseType_t>(2);
                 ReadWriteMutex<BaseType_t> _coreID = ReadWriteMutex<BaseType_t>(0);
             // Callbacks
+                TOnThreadEvent _onDestroy = nullptr;
                 TOnThreadEvent _onInitialize = nullptr;
                 TOnThreadEvent _onStart = nullptr;
                 TOnThreadEvent _onPause = nullptr;
@@ -205,23 +206,27 @@ namespace ESPressio {
 
             // Callback Getters
 
-                std::function<void(IThread*)> GetOnInitialize() {
+                TOnThreadEvent GetOnDestroy() {
+                    return _onDestroy;
+                }
+
+                TOnThreadEvent GetOnInitialize() {
                     return _onInitialize;
                 }
 
-                std::function<void(IThread*)> GetOnStart() {
+                TOnThreadEvent GetOnStart() {
                     return _onStart;
                 }
 
-                std::function<void(IThread*)> GetOnPause() {
+                TOnThreadEvent GetOnPause() {
                     return _onPause;
                 }
 
-                std::function<void(IThread*)> GetOnTerminate() {
+                TOnThreadEvent GetOnTerminate() {
                     return _onTerminate;
                 }
 
-                std::function<void(IThread*, ThreadState, ThreadState)> GetOnStateChange() {
+                TOnThreadStateChangeEvent GetOnStateChange() {
                     return _onStateChange;
                 }
 
@@ -249,23 +254,27 @@ namespace ESPressio {
 
             // Callback Setters
 
-                void SetOnInitialize(std::function<void(IThread*)> value) {
+                void SetOnDestroy(TOnThreadEvent value) {
+                    _onDestroy = value;
+                }
+
+                void SetOnInitialize(TOnThreadEvent value) {
                     _onInitialize = value;
                 }
 
-                void SetOnStart(std::function<void(IThread*)> value) {
+                void SetOnStart(TOnThreadEvent value) {
                     _onStart = value;
                 }
 
-                void SetOnPause(std::function<void(IThread*)> value) {
+                void SetOnPause(TOnThreadEvent value) {
                     _onPause = value;
                 }
 
-                void SetOnTerminate(std::function<void(IThread*)> value) {
+                void SetOnTerminate(TOnThreadEvent value) {
                     _onTerminate = value;
                 }
 
-                void SetOnStateChange(std::function<void(IThread*, ThreadState, ThreadState)> value) {
+                void SetOnStateChange(TOnThreadStateChangeEvent value) {
                     _onStateChange = value;
                 }
         };
