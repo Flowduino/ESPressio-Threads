@@ -48,7 +48,6 @@ You can quickly and easily add this library to your project in PlatformIO by sim
 
 ```ini
 lib_deps = 
-    https://github.com/Flowduino/ESPressio-Base.git
 	https://github.com/Flowduino/ESPressio-Threads.git
 ```
 
