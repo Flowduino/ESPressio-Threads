@@ -46,10 +46,10 @@ namespace ESPressio {
             // Members
                 T _value;
                 std::mutex _mutex;
-                std::function<void(T,T)>* _onChange = nullptr;
+                std::function<void(T,T)> _onChange = nullptr;
             public:
             // Constructor/Destructor
-                Mutex(T value, std::function<void(T,T)>* onChange = nullptr) : _value(value), _onChange((onChange)) { }
+                Mutex(T value, std::function<void(T,T)> onChange = nullptr) : _value(value), _onChange((onChange)) { }
             // Methods
                 T Get() {
                     std::lock_guard<std::mutex> lock(_mutex);
@@ -67,7 +67,7 @@ namespace ESPressio {
                 }
 
                 /// Returns the OnChange Callback for the `Mutex` object.
-                std::function<void(T,T)>* GetOnChange() {
+                std::function<void(T,T)> GetOnChange() {
                     std::lock_guard<std::mutex> lock(_mutex);
                     return _onChange;
                 }
@@ -77,7 +77,7 @@ namespace ESPressio {
                     T oldValue = _value;
                     if (oldValue == value) { return; }
                     _value = value;
-                    if (_onChange != nullptr) { (*_onChange)(oldValue, value); }
+                    if (_onChange != nullptr) { (_onChange)(oldValue, value); }
                 }
 
                 /// Returns a boolean notifying you if the value was set successfully (assuming that the thread-safe lock was available at the point of request).
@@ -147,10 +147,10 @@ namespace ESPressio {
             // Members
                 T _value;
                 std::shared_mutex _mutex;
-                std::function<void(T,T)>* _onChange = nullptr;
+                std::function<void(T,T)> _onChange = nullptr;
             public:
             // Constructor/Destructor
-                ReadWriteMutex(T value, std::function<void(T,T)>* onChange = nullptr) : _value(value), _onChange((onChange)) { }
+                ReadWriteMutex(T value, std::function<void(T,T)> onChange = nullptr) : _value(value), _onChange((onChange)) { }
             // Methods
                 T Get() {
                     std::shared_lock<std::shared_mutex> lock(_mutex);
@@ -168,7 +168,7 @@ namespace ESPressio {
                 }
 
                 /// Returns the OnChange Callback for the `ReadWriteMutex` object.
-                std::function<void(T,T)>* GetOnChange() {
+                std::function<void(T,T)> GetOnChange() {
                     std::shared_lock<std::shared_mutex> lock(_mutex);
                     return _onChange;
                 }
@@ -178,7 +178,7 @@ namespace ESPressio {
                     T oldValue = _value;
                     if (oldValue == value) { return; }
                     _value = value;
-                    if (_onChange != nullptr) { (*_onChange)(oldValue, value); }
+                    if (_onChange != nullptr) { (_onChange)(oldValue, value); }
                 }
 
                 /// Returns a boolean notifying you if the value was set successfully (assuming that the thread-safe lock was available at the point of request).
