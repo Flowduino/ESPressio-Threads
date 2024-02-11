@@ -47,9 +47,12 @@ namespace ESPressio {
                 T _value;
                 std::mutex _mutex;
                 std::function<void(T,T)> _onChange = nullptr;
+                std::function<bool(T,T)> _onCompare = [&](T a, T b) -> bool { return a == b; };
             public:
             // Constructor/Destructor
-                Mutex(T value, std::function<void(T,T)> onChange = nullptr) : _value(value), _onChange((onChange)) { }
+                Mutex(T value, std::function<void(T,T)> onChange = nullptr, std::function<bool(T,T)> onCompare = nullptr) : _value(value), _onChange((onChange)) {
+                    if (onCompare) != nullptr { _onCompare = onCompare; }
+                }
             // Methods
                 T Get() {
                     std::lock_guard<std::mutex> lock(_mutex);
@@ -75,7 +78,7 @@ namespace ESPressio {
                 void Set(T value) {
                     std::lock_guard<std::mutex> lock(_mutex);
                     T oldValue = _value;
-                    if (oldValue == value) { return; }
+                    if (_onCompare(oldValue, value)) { return; }
                     _value = value;
                     if (_onChange != nullptr) { (_onChange)(oldValue, value); }
                 }
@@ -148,9 +151,12 @@ namespace ESPressio {
                 T _value;
                 std::shared_mutex _mutex;
                 std::function<void(T,T)> _onChange = nullptr;
+                std::function<bool(T,T)> _onCompare = [&](T a, T b) -> bool { return a == b; };
             public:
             // Constructor/Destructor
-                ReadWriteMutex(T value, std::function<void(T,T)> onChange = nullptr) : _value(value), _onChange((onChange)) { }
+                ReadWriteMutex(T value, std::function<void(T,T)> onChange = nullptr, std::function<bool(T,T)> onCompare = nullptr) : _value(value), _onChange((onChange)) {
+                    if (onCompare) != nullptr { _onCompare = onCompare; }
+                }
             // Methods
                 T Get() {
                     std::shared_lock<std::shared_mutex> lock(_mutex);
@@ -176,7 +182,7 @@ namespace ESPressio {
                 void Set(T value) {
                     std::unique_lock<std::shared_mutex> lock(_mutex);
                     T oldValue = _value;
-                    if (oldValue == value) { return; }
+                    if (_onCompare(oldValue, value)) { return; }
                     _value = value;
                     if (_onChange != nullptr) { (_onChange)(oldValue, value); }
                 }
