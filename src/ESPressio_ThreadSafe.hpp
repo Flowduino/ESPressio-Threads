@@ -53,6 +53,10 @@ namespace ESPressio {
                 Mutex(T value, std::function<void(T,T)> onChange = nullptr, std::function<bool(T,T)> onCompare = nullptr) : _value(value), _onChange((onChange)) {
                     if (onCompare != nullptr) { _onCompare = onCompare; }
                 }
+
+                ~Mutex() {
+                    _mutex.unlock();
+                }
             // Methods
                 T Get() {
                     std::lock_guard<std::mutex> lock(_mutex);
@@ -156,6 +160,10 @@ namespace ESPressio {
             // Constructor/Destructor
                 ReadWriteMutex(T value, std::function<void(T,T)> onChange = nullptr, std::function<bool(T,T)> onCompare = nullptr) : _value(value), _onChange((onChange)) {
                     if (onCompare != nullptr) { _onCompare = onCompare; }
+                }
+
+                ~ReadWriteMutex() {
+                    _mutex.unlock();
                 }
             // Methods
                 T Get() {
