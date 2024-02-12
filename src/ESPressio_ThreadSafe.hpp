@@ -164,7 +164,7 @@ namespace ESPressio {
                 }
 
                 ~ReadWriteMutex() {
-                    _mutex.unlock();
+                    if (!_mutex.try_lock()) { _mutex.unlock(); }
                 }
             // Methods
                 T Get() {
