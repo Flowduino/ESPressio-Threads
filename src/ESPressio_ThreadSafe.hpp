@@ -56,7 +56,7 @@ namespace ESPressio {
 
                 ~Mutex() {
                     // Check if the mutex is locked....
-                    if (!_mutex.try_lock()) { _mutex.unlock() };
+                    if (!_mutex.try_lock()) { _mutex.unlock(); }
                 }
             // Methods
                 T Get() {
