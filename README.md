@@ -380,7 +380,7 @@ Well, beyond just changing the name, let's take a look:
 
 class ThreadSafeThread : public Thread {
     private:
-        IThreadSafe<int>* _counter_ = new ReadWriteMutex<cint>(0);
+        IThreadSafe<int>* _counter_ = new ReadWriteMutex<int>(0);
     protected:
         void OnInitialization() override {
             // Anything we need to do here prior to the Thread's Loop sstarting
@@ -423,7 +423,7 @@ Let's unpick this code to see what each piece is doing.
 We'll start with the member (property) declaration of `_counter` itself.
 
 ```cpp
-IThreadSafe<int>* _counter_ = new ReadWriteMutex<cint>(0);
+IThreadSafe<int>* _counter_ = new ReadWriteMutex<int>(0);
 ```
 This declares `_counter` to be of the type `ReadWriteMutex<int>` (our `ReadWriteMutex` type-specialized for `int`).
 Additionally, it creates a new *instance* of this `ReadWriteMutex`, and the constructor takes the *intiial value* (`0` in this case) for our member.
