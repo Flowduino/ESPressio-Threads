@@ -286,7 +286,7 @@ class MyFirstThread : public Thread {
             Serial.printf("MyFirstThread::OnLoop() - Thread #%d - On CPU %d, Counter = %d", GetThreadID(), xPortGetCoreID(), _counter);
 
             if (_counter == 10) {
-                Termiante(); // This will Terminate the Thread
+                Terminate(); // This will Terminate the Thread
             }
 
             delay(1000); // Let's let this Thread wait for 1 second before it loops around again
@@ -352,7 +352,7 @@ class NotThreadSafeThread : public Thread {
             Serial.printf("MyFirstThread::OnLoop() - Thread #%d - On CPU %d, Counter = %d", GetThreadID(), xPortGetCoreID(), _counter);
 
             if (_counter == 10) {
-                Termiante(); // This will Terminate the Thread
+                Terminate(); // This will Terminate the Thread
             }
 
             delay(1000); // Let's let this Thread wait for 1 second before it loops around again
@@ -397,7 +397,7 @@ class ThreadSafeThread : public Thread {
             Serial.printf("MyFirstThread::OnLoop() - Thread #%d - On CPU %d, Counter = %d", GetThreadID(), xPortGetCoreID(), counter);
 
             if (_counter == 10) {
-                Termiante(); // This will Terminate the Thread
+                Terminate(); // This will Terminate the Thread
             }
 
             delay(1000); // Let's let this Thread wait for 1 second before it loops around again
