@@ -36,8 +36,8 @@ namespace ESPressio {
                 ReadWriteMutex<bool> _startOnInitialize = ReadWriteMutex<bool>(true);
                 TaskHandle_t _taskHandle = NULL; // SHOULD be Atomic!
                 ReadWriteMutex<uint32_t> _stackSize = ReadWriteMutex<uint32_t>(ESPRESSIO_THREAD_DEFAULT_STACK_SIZE);
-                ReadWriteMutex<UBaseType_t> _priority = ReadWriteMutex<UBaseType_t>(2);
-                ReadWriteMutex<BaseType_t> _coreID = ReadWriteMutex<BaseType_t>(0);
+                ReadWriteMutex<unsigned int> _priority = ReadWriteMutex<unsigned int>(2);
+                ReadWriteMutex<int> _coreID = ReadWriteMutex<int>(0);
             // Callbacks
                 TOnThreadEvent _onDestroy = nullptr;
                 TOnThreadEvent _onInitialize = nullptr;
@@ -176,7 +176,7 @@ namespace ESPressio {
 
             // Getters
 
-                BaseType_t GetCoreID() override {
+                int GetCoreID() override {
                     return _coreID.Get();
                 }
 
@@ -184,7 +184,7 @@ namespace ESPressio {
                     return _stackSize.Get();
                 }
 
-                UBaseType_t GetPriority() override {
+                unsigned int GetPriority() override {
                     return _priority.Get();
                 }
 
@@ -232,7 +232,7 @@ namespace ESPressio {
 
             // Setters
 
-                void SetCoreID(BaseType_t value) override {
+                void SetCoreID(int value) override {
                     _coreID.Set(value);
                 }
 
@@ -240,7 +240,7 @@ namespace ESPressio {
                     _stackSize.Set(value);
                 }
 
-                void SetPriority(UBaseType_t value) override {
+                void SetPriority(unsigned int value) override {
                     _priority.Set(value);
                 }
 

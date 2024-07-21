@@ -52,13 +52,13 @@ namespace ESPressio {
             // Getters
 
                 /// `GetCoreID` returns the ID of the Core the Thread is running on.
-                virtual BaseType_t GetCoreID() = 0;
+                virtual int GetCoreID() = 0;
 
                 /// `GetStackSize` returns the size of the Stack the Thread is using.
                 virtual uint32_t GetStackSize() = 0;
 
                 /// `GetPriority` returns the priority of the Thread.
-                virtual UBaseType_t GetPriority() = 0;
+                virtual unsigned int GetPriority() = 0;
 
                 /// `GetThreadID` returns the unique ID of the Thread.
                 virtual uint8_t GetThreadID() = 0;
@@ -105,13 +105,13 @@ namespace ESPressio {
             // Setters
 
                 /// `SetCoreID` sets the ID of the Core the Thread should run on.
-                virtual void SetCoreID(BaseType_t value) = 0;
+                virtual void SetCoreID(int value) = 0;
 
                 /// `SetStackSize` sets the size of the Stack the Thread should use.
                 virtual void SetStackSize(uint32_t value) = 0;
 
                 /// `SetPriority` sets the priority of the Thread.
-                virtual void SetPriority(UBaseType_t value) = 0;
+                virtual void SetPriority(unsigned int value) = 0;
 
                 /// `SetFreeOnTerminate` defines whether this Thread should be freed from memory when it is terminated. 
                 virtual void SetFreeOnTerminate(bool value) = 0;

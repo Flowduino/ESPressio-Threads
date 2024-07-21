@@ -23,7 +23,7 @@ namespace ESPressio {
             private:
                 // Members
                 ReadWriteMutex<std::vector<IThread*>> _threads;
-                ReadWriteMutex<BaseType_t> _nextCoreID = ReadWriteMutex<BaseType_t>(0);
+                ReadWriteMutex<int> _nextCoreID = ReadWriteMutex<int>(0);
                 
             protected:
                 ThreadManager() : _threads(std::vector<IThread*>()) {
@@ -37,12 +37,12 @@ namespace ESPressio {
                 }
 
                 /// Adds a Thread to the `ThreadManager` for management.
-                BaseType_t AddThread(IThread* thread) {
+                int AddThread(IThread* thread) {
                     _threads.WithWriteLock([thread](std::vector<IThread*>& threads) {
                         threads.push_back(thread);
                     });
-                    BaseType_t useCore = 0;
-                    _nextCoreID.WithWriteLock([&useCore](BaseType_t& nextCoreID) {
+                    int useCore = 0;
+                    _nextCoreID.WithWriteLock([&useCore](int& nextCoreID) {
                         useCore = nextCoreID;
                         nextCoreID = (nextCoreID + 1) % 2;
                     });
