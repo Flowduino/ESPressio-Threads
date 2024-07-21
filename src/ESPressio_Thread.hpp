@@ -1,5 +1,15 @@
 #pragma once
 
+#ifdef ARDUINO
+    // Includes for Arduino environment
+    #include <FreeRTOS.h>
+    #include <task.h>
+#else
+    // Includes for ESP-IDF environment
+    #include "freertos/FreeRTOS.h"
+    #include "freertos/task.h"
+#endif
+
 #include <functional>
 
 #include "ESPressio_IThread.hpp"
@@ -34,7 +44,7 @@ namespace ESPressio {
                 ReadWriteMutex<ThreadState> _threadState = ReadWriteMutex<ThreadState>(ThreadState::Uninitialized);
                 ReadWriteMutex<bool> _freeOnTerminate = ReadWriteMutex<bool>(false);
                 ReadWriteMutex<bool> _startOnInitialize = ReadWriteMutex<bool>(true);
-                TaskHandle_t _taskHandle = NULL; // SHOULD be Atomic!
+                void* _taskHandle = NULL; // SHOULD be Atomic!
                 ReadWriteMutex<uint32_t> _stackSize = ReadWriteMutex<uint32_t>(ESPRESSIO_THREAD_DEFAULT_STACK_SIZE);
                 ReadWriteMutex<unsigned int> _priority = ReadWriteMutex<unsigned int>(2);
                 ReadWriteMutex<int> _coreID = ReadWriteMutex<int>(0);
@@ -49,7 +59,7 @@ namespace ESPressio {
             // Methods
                 void _deleteTask() {
                     if (_taskHandle != NULL) {
-                        TaskHandle_t handle = _taskHandle;
+                        void* handle = _taskHandle;
                         _taskHandle = NULL;
                         vTaskDelete(handle);
                     }
