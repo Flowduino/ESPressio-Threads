@@ -139,7 +139,7 @@ namespace ESPressio {
                                 }
                                 vTaskSuspend(NULL);
                             },
-                            threadIDStr,
+                            threadIDStr.c_str(),
                             GetStackSize(),
                             this,          
                             GetPriority(), 
