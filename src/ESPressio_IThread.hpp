@@ -1,6 +1,5 @@
 #pragma once
 
-// #define CORE_THREADING_DEBUG // Uncomment this to explicitly enable debugging for the threading module
 #include <Arduino.h>
 #include <cstdint>
 #include <functional>
