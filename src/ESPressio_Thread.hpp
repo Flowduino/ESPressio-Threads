@@ -44,7 +44,7 @@ namespace ESPressio {
                 ReadWriteMutex<ThreadState> _threadState = ReadWriteMutex<ThreadState>(ThreadState::Uninitialized);
                 ReadWriteMutex<bool> _freeOnTerminate = ReadWriteMutex<bool>(false);
                 ReadWriteMutex<bool> _startOnInitialize = ReadWriteMutex<bool>(true);
-                void* _taskHandle = NULL; // SHOULD be Atomic!
+                TaskHandle_t _taskHandle = NULL; // SHOULD be Atomic!
                 ReadWriteMutex<uint32_t> _stackSize = ReadWriteMutex<uint32_t>(ESPRESSIO_THREAD_DEFAULT_STACK_SIZE);
                 ReadWriteMutex<unsigned int> _priority = ReadWriteMutex<unsigned int>(2);
                 ReadWriteMutex<int> _coreID = ReadWriteMutex<int>(0);
@@ -59,7 +59,7 @@ namespace ESPressio {
             // Methods
                 void _deleteTask() {
                     if (_taskHandle != NULL) {
-                        void* handle = _taskHandle;
+                        TaskHandle_t handle = _taskHandle;
                         _taskHandle = NULL;
                         vTaskDelete(handle);
                     }
@@ -71,7 +71,11 @@ namespace ESPressio {
                             case ThreadState::Paused:
                             case ThreadState::Initialized:
                             case ThreadState::Uninitialized:
-                                delay(1);
+                                #ifdef ARDUINO
+                                    delay(1);
+                                #else
+                                    vTaskDelay(1);
+                                #endif
                                 break;
                             case ThreadState::Running:
                                 OnLoop();
