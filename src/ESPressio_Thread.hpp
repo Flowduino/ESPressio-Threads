@@ -126,12 +126,10 @@ namespace ESPressio {
             // Methods
                 void GarbageCollect();
 
-                virtual String GetThreadNamePrefix() const { return "thread"; }
-
                 void Initialize() override {
                     if (_taskHandle != NULL) { vTaskResume(_taskHandle); } // Resume existing Task if it exists...
                     else { // ... or Create a new Task if it doesn't!
-                        String threadIDStr = GetThreadNamePrefix() + String(GetThreadID());
+                        std::string threadIDStr = "thread" + std::to_string(GetThreadID());
                         xTaskCreatePinnedToCore(
                             [](void* parameter) {
                                 Thread* instance = static_cast<Thread*>(parameter);
@@ -141,7 +139,7 @@ namespace ESPressio {
                                 }
                                 vTaskSuspend(NULL);
                             },
-                            threadIDStr.c_str(),
+                            threadIDStr,
                             GetStackSize(),
                             this,          
                             GetPriority(), 

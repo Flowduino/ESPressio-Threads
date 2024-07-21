@@ -29,8 +29,6 @@ namespace ESPressio {
                 typedef std::function<void(IThread*)> ThreadCallback;
                 typedef std::function<void(IThread*, ThreadState, ThreadState)> ThreadStateChangeCallback;
 
-                virtual String GetThreadNamePrefix() const = 0;
-
             // Destructor
 
                 virtual ~IThread() {}            
