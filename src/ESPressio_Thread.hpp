@@ -74,7 +74,7 @@ namespace ESPressio {
                                 #ifdef ARDUINO
                                     delay(1);
                                 #else
-                                    vTaskDelay(1);
+                                    vTaskDelay(1); // Possibly pdMS_TO_TICKS(1) for FreeRTOS
                                 #endif
                                 break;
                             case ThreadState::Running:
@@ -82,6 +82,7 @@ namespace ESPressio {
                                 break;
                             case ThreadState::Terminating:
                             case ThreadState::Terminated:
+                            case ThreadState::Destroyed:
                                 return;
                         }
                     }
@@ -121,6 +122,10 @@ namespace ESPressio {
                             break;
                         case ThreadState::Initialized:
                             if (_onInitialize != nullptr) { _onInitialize(this); }
+                            break;
+                        case ThreadState::Destroyed:
+                        case ThreadState::Uninitialized:
+                            // Do nothing (yet)
                             break;
                     
                     }
