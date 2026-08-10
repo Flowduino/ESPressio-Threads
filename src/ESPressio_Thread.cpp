@@ -14,7 +14,8 @@ namespace ESPressio {
         }
 
         Thread::~Thread() {
-            if (_onDestroy != nullptr) { _onDestroy(this); }
+            TOnThreadEvent onDestroy = GetOnDestroy();
+            if (onDestroy != nullptr) { onDestroy(this); }
             SetThreadState(ThreadState::Destroyed);
             _deleteTask();
             if (_taskExited != nullptr) {

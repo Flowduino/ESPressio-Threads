@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <functional>
+#include <mutex>
 #include <string>
 
 #include "ESPressio_IThread.hpp"
@@ -51,6 +52,7 @@ namespace ESPressio {
                 ReadWriteMutex<unsigned int> _priority = ReadWriteMutex<unsigned int>(2);
                 ReadWriteMutex<int> _coreID = ReadWriteMutex<int>(0);
             // Callbacks
+                mutable std::mutex _callbackMutex;
                 TOnThreadEvent _onDestroy = nullptr;
                 TOnThreadEvent _onInitialize = nullptr;
                 TOnThreadEvent _onStart = nullptr;
@@ -128,27 +130,39 @@ namespace ESPressio {
                     ThreadState oldState,
                     ThreadState newState
                 ) {
-                    if (_onStateChange != nullptr) {
-                        _onStateChange(this, oldState, newState);
+                    TOnThreadStateChangeEvent onStateChange;
+                    TOnThreadEvent onThreadEvent;
+
+                    {
+                        std::lock_guard<std::mutex> lock(_callbackMutex);
+                        onStateChange = _onStateChange;
+
+                        switch (newState) {
+                            case ThreadState::Terminated:
+                                onThreadEvent = _onTerminate;
+                                break;
+                            case ThreadState::Paused:
+                                onThreadEvent = _onPause;
+                                break;
+                            case ThreadState::Running:
+                                onThreadEvent = _onStart;
+                                break;
+                            case ThreadState::Initialized:
+                                onThreadEvent = _onInitialize;
+                                break;
+                            case ThreadState::Uninitialized:
+                            case ThreadState::Terminating:
+                            case ThreadState::Destroyed:
+                                break;
+                        }
                     }
 
-                    switch (newState) {
-                        case ThreadState::Terminated:
-                            if (_onTerminate != nullptr) { _onTerminate(this); }
-                            break;
-                        case ThreadState::Paused:
-                            if (_onPause != nullptr) { _onPause(this); }
-                            break;
-                        case ThreadState::Running:
-                            if (_onStart != nullptr) { _onStart(this); }
-                            break;
-                        case ThreadState::Initialized:
-                            if (_onInitialize != nullptr) { _onInitialize(this); }
-                            break;
-                        case ThreadState::Uninitialized:
-                        case ThreadState::Terminating:
-                        case ThreadState::Destroyed:
-                            break;
+                    if (onStateChange != nullptr) {
+                        onStateChange(this, oldState, newState);
+                    }
+
+                    if (onThreadEvent != nullptr) {
+                        onThreadEvent(this);
                     }
                 }
             protected:
@@ -351,8 +365,11 @@ namespace ESPressio {
                             const bool terminated =
                                 instance->GetThreadState() == ThreadState::Terminated;
 
-                            if (terminated && instance->_onTerminated != nullptr) {
-                                instance->_onTerminated(instance);
+                            TOnThreadEvent onTerminated =
+                                instance->GetOnTerminated();
+
+                            if (terminated && onTerminated != nullptr) {
+                                onTerminated(instance);
                             }
 
                             if (terminated && instance->GetFreeOnTerminate()) {
@@ -496,30 +513,37 @@ namespace ESPressio {
             // Callback Getters
 
                 TOnThreadEvent GetOnDestroy() override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
                     return _onDestroy;
                 }
 
                 TOnThreadEvent GetOnInitialize() override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
                     return _onInitialize;
                 }
 
                 TOnThreadEvent GetOnStart() override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
                     return _onStart;
                 }
 
                 TOnThreadEvent GetOnPause() override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
                     return _onPause;
                 }
 
                 TOnThreadEvent GetOnTerminate() override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
                     return _onTerminate;
                 }
 
                 TOnThreadEvent GetOnTerminated() override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
                     return _onTerminated;
                 }
 
                 TOnThreadStateChangeEvent GetOnStateChange() override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
                     return _onStateChange;
                 }
 
@@ -548,30 +572,37 @@ namespace ESPressio {
             // Callback Setters
 
                 void SetOnDestroy(TOnThreadEvent value) override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
                     _onDestroy = value;
                 }
 
                 void SetOnInitialize(TOnThreadEvent value) override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
                     _onInitialize = value;
                 }
 
                 void SetOnStart(TOnThreadEvent value) override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
                     _onStart = value;
                 }
 
                 void SetOnPause(TOnThreadEvent value) override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
                     _onPause = value;
                 }
 
                 void SetOnTerminate(TOnThreadEvent value) override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
                     _onTerminate = value;
                 }
 
                 void SetOnTerminated(TOnThreadEvent value) override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
                     _onTerminated = value;
                 }
 
                 void SetOnStateChange(TOnThreadStateChangeEvent value) override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
                     _onStateChange = value;
                 }
         };
