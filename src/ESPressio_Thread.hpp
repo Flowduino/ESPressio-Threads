@@ -137,34 +137,50 @@ namespace ESPressio {
                 void GarbageCollect();
 
                 void Initialize() override {
-                    if (_taskHandle != NULL) { vTaskResume(_taskHandle); } // Resume existing Task if it exists...
-                    else { // ... or Create a new Task if it doesn't!
-                        std::string threadIDStr = "thread" + std::to_string(GetThreadID());
-                        xTaskCreatePinnedToCore(
-                            [](void* parameter) {
-                                Thread* instance = static_cast<Thread*>(parameter);
-                                if (instance != nullptr) {
-                                    instance->_loop();
-                                    instance->SetThreadState(ThreadState::Terminated);
-                                }
-                                vTaskSuspend(NULL);
-                            },
-                            threadIDStr.c_str(),
-                            GetStackSize(),
-                            this,          
-                            GetPriority(), 
-                            &_taskHandle,  
-                            GetCoreID()    
-                        );
-                    }
-                    OnInitialization(); // Invoke any custom initialization behaviour before we change the state of the Thread
-                    // Check if the state was changed to Terminating or Terminate during the OnInitialization() method
-                    if (GetThreadState() == ThreadState::Terminating || GetThreadState() == ThreadState::Terminated) {
-                        vTaskDelete(_taskHandle);
+                    if (_taskHandle != nullptr) {
                         return;
                     }
-                    SetThreadState(GetStartOnInitialize() ? ThreadState::Running : ThreadState::Initialized);
-                    if (_onInitialize != nullptr) { _onInitialize(this); }
+
+                    std::string threadName =
+                        "thread" + std::to_string(GetThreadID());
+
+                    const BaseType_t result = xTaskCreatePinnedToCore(
+                        [](void* parameter) {
+                            Thread* instance = static_cast<Thread*>(parameter);
+
+                            if (instance != nullptr) {
+                                instance->_loop();
+                                instance->_taskHandle = nullptr;
+                                instance->SetThreadState(ThreadState::Terminated);
+                            }
+                            vTaskDelete(nullptr);
+                        },
+                        threadName.c_str(),
+                        GetStackSize(),
+                        this,
+                        GetPriority(),
+                        &_taskHandle,
+                        GetCoreID()
+                    );
+
+                    if (result != pdPASS) {
+                        _taskHandle = nullptr;
+                        return;
+                    }
+
+                    OnInitialization();
+
+                    if (GetThreadState() == ThreadState::Terminating) {
+                        _deleteTask();
+                        SetThreadState(ThreadState::Terminated);
+                        return;
+                    }
+
+                    SetThreadState(
+                        GetStartOnInitialize()
+                            ? ThreadState::Running
+                            : ThreadState::Initialized
+                    );
                 }
 
                 void Terminate() override {
