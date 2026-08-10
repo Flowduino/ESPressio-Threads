@@ -266,6 +266,10 @@ void setup() {
 ```
 Now, all three of our `MyFirstThread` instances will start exactly as they did before, but we didn't have to explicitly `Initialize()` each of them separately.
 
+`ThreadManager::ForEachThread()` and `ThreadManager::Initialize()` invoke Thread code without holding the manager's thread-list lock, so callbacks may safely re-enter the manager. The manager pins these operations while they run and defers automatic garbage-collection deletion until the final active iteration completes.
+
+The pin protects against deletion performed by `ThreadManager::CleanUp()`. Application code must not directly delete a Thread concurrently with manager iteration; unmanaged concurrent destruction remains unsupported because the manager stores non-owning pointers in order to support both stack-allocated and dynamically allocated Threads.
+
 ### Automated Garbage Collection
 It is quite common to have `Thread`s with non-permanent lifetimes, such as *Worker Threads* (less common with microcontrollers, but not unheard of).
 

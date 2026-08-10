@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <functional>
 #include <limits>
+#include <mutex>
 #include <vector>
 
 // Library Includes
@@ -27,6 +28,52 @@ namespace ESPressio {
                 // Members
                 ReadWriteMutex<std::vector<IThread*>> _threads;
                 ReadWriteMutex<int> _nextCoreID = ReadWriteMutex<int>(0);
+                std::mutex _iterationMutex;
+                std::size_t _activeIterations = 0;
+                bool _cleanupPending = false;
+
+                void _beginIteration() {
+                    std::lock_guard<std::mutex> lock(_iterationMutex);
+                    ++_activeIterations;
+                }
+
+                void _endIteration() {
+                    bool runDeferredCleanup = false;
+
+                    {
+                        std::lock_guard<std::mutex> lock(_iterationMutex);
+                        if (_activeIterations > 0) {
+                            --_activeIterations;
+                        }
+
+                        if (_activeIterations == 0 && _cleanupPending) {
+                            _cleanupPending = false;
+                            runDeferredCleanup = true;
+                        }
+                    }
+
+                    if (runDeferredCleanup) {
+                        CleanUp();
+                    }
+                }
+
+                class IterationGuard {
+                    private:
+                        ThreadManager& _manager;
+
+                    public:
+                        explicit IterationGuard(ThreadManager& manager)
+                            : _manager(manager) {
+                            _manager._beginIteration();
+                        }
+
+                        ~IterationGuard() {
+                            _manager._endIteration();
+                        }
+
+                        IterationGuard(const IterationGuard&) = delete;
+                        IterationGuard& operator=(const IterationGuard&) = delete;
+                };
 
                 static int _getCoreCount() {
                     #if defined(portNUM_PROCESSORS)
@@ -137,11 +184,16 @@ namespace ESPressio {
 
                 /// Iterates through all Threads in the `ThreadManager`.
                 void ForEachThread(std::function<void(IThread*)> callback) {
-                    _threads.WithWriteLock([callback](std::vector<IThread*>& threads) {
-                        for (auto thread : threads) {
-                            callback(thread);
-                        }
+                    IterationGuard iteration(*this);
+                    std::vector<IThread*> snapshot;
+
+                    _threads.WithSharedReadLock([&snapshot](const std::vector<IThread*>& threads) {
+                        snapshot = threads;
                     });
+
+                    for (auto thread : snapshot) {
+                        callback(thread);
+                    }
                 }
 
                 /// Returns the requested `Thread` by ID
@@ -165,6 +217,14 @@ namespace ESPressio {
                 void CleanUp() {
                     std::vector<IThread*> deleteThreads;
 
+                    // Keep the iteration pin while selecting and removing
+                    // victims so no new snapshot can start in between.
+                    std::unique_lock<std::mutex> iterationLock(_iterationMutex);
+                    if (_activeIterations > 0) {
+                        _cleanupPending = true;
+                        return;
+                    }
+
                     _threads.WithWriteLock([&deleteThreads](std::vector<IThread*>& threads) {
                         for (auto thread : threads) {
                             if (thread->GetThreadState() == ThreadState::Terminated && thread->GetFreeOnTerminate()) {
@@ -177,6 +237,8 @@ namespace ESPressio {
                         }
                     });
 
+                    iterationLock.unlock();
+
                     // Destructors and callbacks may access ThreadManager, so
                     // deletion must happen after releasing the manager lock.
                     for (auto thread : deleteThreads) {
@@ -186,11 +248,16 @@ namespace ESPressio {
 
                 /// Initializes all Threads in the `ThreadManager`.
                 void Initialize() {
-                    _threads.WithSharedReadLock([](const std::vector<IThread*>& threads) {
-                        for (auto thread : threads) {
-                            thread->Initialize();
-                        }
+                    IterationGuard iteration(*this);
+                    std::vector<IThread*> snapshot;
+
+                    _threads.WithSharedReadLock([&snapshot](const std::vector<IThread*>& threads) {
+                        snapshot = threads;
                     });
+
+                    for (auto thread : snapshot) {
+                        thread->Initialize();
+                    }
                 }
 
                 std::size_t GetThreadCount() {
