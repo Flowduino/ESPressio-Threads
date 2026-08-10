@@ -270,6 +270,17 @@ Now, all three of our `MyFirstThread` instances will start exactly as they did b
 
 The pin protects against deletion performed by `ThreadManager::CleanUp()`. Application code must not directly delete a Thread concurrently with manager iteration; unmanaged concurrent destruction remains unsupported because the manager stores non-owning pointers in order to support both stack-allocated and dynamically allocated Threads.
 
+Use `ThreadManager::WithThread()` when accessing one Thread by ID while garbage collection may be active:
+
+```cpp
+ThreadManager::GetInstance()->WithThread(threadID, [](IThread* thread) {
+    // The manager will not garbage-collect this Thread during the callback.
+    thread->Pause();
+});
+```
+
+`GetThread()` remains available for source compatibility, but returns a non-owning pointer whose lifetime is not pinned after the method returns. Use it only when the application independently guarantees that the Thread cannot be destroyed; prefer `WithThread()` otherwise.
+
 ### Automated Garbage Collection
 It is quite common to have `Thread`s with non-permanent lifetimes, such as *Worker Threads* (less common with microcontrollers, but not unheard of).
 

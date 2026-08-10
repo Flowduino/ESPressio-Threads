@@ -196,7 +196,37 @@ namespace ESPressio {
                     }
                 }
 
-                /// Returns the requested `Thread` by ID
+                /// Invokes a callback with the requested Thread pinned against
+                /// manager-driven garbage collection for the callback's
+                /// duration. Returns false when the ID is not registered.
+                bool WithThread(
+                    uint8_t threadID,
+                    std::function<void(IThread*)> callback
+                ) {
+                    IterationGuard iteration(*this);
+                    IThread* result = nullptr;
+
+                    _threads.WithSharedReadLock(
+                        [threadID, &result](const std::vector<IThread*>& threads) {
+                            for (auto thread : threads) {
+                                if (thread->GetThreadID() == threadID) {
+                                    result = thread;
+                                    break;
+                                }
+                            }
+                        }
+                    );
+
+                    if (result == nullptr) {
+                        return false;
+                    }
+
+                    callback(result);
+                    return true;
+                }
+
+                /// Returns a non-owning Thread pointer by ID. Prefer
+                /// WithThread() when garbage collection may run concurrently.
                 IThread* GetThread(uint8_t threadID) {
                     IThread* result = nullptr;
                     _threads.WithSharedReadLock([threadID, &result](const std::vector<IThread*>& threads) {
