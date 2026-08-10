@@ -335,8 +335,9 @@ namespace ESPressio {
                 }
 
                 void Pause() override {
-                    SetThreadState(ThreadState::Paused);
-                    if (_onPause != nullptr) { _onPause(this); }
+                    if (GetThreadState() == ThreadState::Running) {
+                        SetThreadState(ThreadState::Paused);
+                    }
                 }
 
             // Getters
