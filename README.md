@@ -357,6 +357,8 @@ Directly destroying a running derived object without first calling `Shutdown()` 
 
 Calling `Shutdown()` claims manual ownership of destruction by disabling `FreeOnTerminate`. Consequently, code that explicitly shuts down a dynamically allocated Thread remains responsible for deleting it.
 
+Termination has two callback milestones. `SetOnTerminate()` registers a callback for the moment the Thread loop enters the `Terminated` state. `SetOnTerminated()` registers a callback that runs later, from FreeRTOS task cleanup, after task execution has ended. Use `SetOnTerminated()` when cleanup depends on the worker no longer executing `OnLoop()`.
+
 ## Thread-Safe Members (Properties)
 When working with multiple Threads (*especially on multi-core hardware such as the ESP32 microcontrollers*) it is absolutely critical that we identify any and all *members* (properties) within our Objects that may be simultainously accessed (be that read or write) by multiple Threads at any given moment.
 

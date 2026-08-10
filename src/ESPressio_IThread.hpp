@@ -96,8 +96,12 @@ namespace ESPressio {
                 /// `GetOnPaused` returns the callback to be invoked when the Thread is paused.
                 virtual ThreadCallback GetOnPause() = 0;
 
-                /// `GetOnTerminated` returns the callback to be invoked when the Thread is terminated.
+                /// `GetOnTerminate` returns the callback invoked when the Thread loop enters the Terminated state.
                 virtual ThreadCallback GetOnTerminate() = 0;
+
+                /// `GetOnTerminated` returns the callback invoked after the underlying task has completed termination.
+                /// The default implementation preserves compatibility with existing IThread implementations.
+                virtual ThreadCallback GetOnTerminated() { return nullptr; }
 
                 /// `GetOnStateChange` returns the callback to be invoked when the Thread's state changes.
                 virtual ThreadStateChangeCallback GetOnStateChange() = 0;
@@ -137,9 +141,13 @@ namespace ESPressio {
                 /// The callback function takes `IThread*` and ideally named `sender`.
                 virtual void SetOnPause(ThreadCallback) = 0;
 
-                /// `SetOnTerminated` sets the callback to be invoked when the Thread is terminated.
+                /// `SetOnTerminate` sets the callback invoked when the Thread loop enters the Terminated state.
                 /// The callback function takes `IThread*` and ideally named `sender`.
                 virtual void SetOnTerminate(ThreadCallback) = 0;
+
+                /// `SetOnTerminated` sets the callback invoked after the underlying task has completed termination.
+                /// The default implementation preserves compatibility with existing IThread implementations.
+                virtual void SetOnTerminated(ThreadCallback) {}
 
                 /// `SetOnStateChange` sets the callback to be invoked when the Thread's state changes.
                 /// The callback function takes `IThread*` and ideally named `sender`, `ThreadState` for the previous state and `ThreadState` for the new state.

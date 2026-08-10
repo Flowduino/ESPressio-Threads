@@ -56,6 +56,7 @@ namespace ESPressio {
                 TOnThreadEvent _onStart = nullptr;
                 TOnThreadEvent _onPause = nullptr;
                 TOnThreadEvent _onTerminate = nullptr;
+                TOnThreadEvent _onTerminated = nullptr;
                 TOnThreadStateChangeEvent _onStateChange = nullptr;
 
             // Methods
@@ -108,9 +109,9 @@ namespace ESPressio {
                     if (_onStateChange != nullptr) { _onStateChange(this, oldState, state); }
                     switch (state) {
                         case ThreadState::Terminated:
+                            if (_onTerminate != nullptr) { _onTerminate(this); }
                             break;
                         case ThreadState::Terminating:
-                            if (_onTerminate != nullptr) { _onTerminate(this); }
                             break;
                         case ThreadState::Paused:
                             if (_onPause != nullptr) { _onPause(this); }
@@ -256,8 +257,14 @@ namespace ESPressio {
                                 return;
                             }
 
-                            if (instance->GetThreadState() == ThreadState::Terminated &&
-                                instance->GetFreeOnTerminate()) {
+                            const bool terminated =
+                                instance->GetThreadState() == ThreadState::Terminated;
+
+                            if (terminated && instance->_onTerminated != nullptr) {
+                                instance->_onTerminated(instance);
+                            }
+
+                            if (terminated && instance->GetFreeOnTerminate()) {
                                 instance->GarbageCollect();
                                 return;
                             }
@@ -406,6 +413,10 @@ namespace ESPressio {
                     return _onTerminate;
                 }
 
+                TOnThreadEvent GetOnTerminated() override {
+                    return _onTerminated;
+                }
+
                 TOnThreadStateChangeEvent GetOnStateChange() override {
                     return _onStateChange;
                 }
@@ -452,6 +463,10 @@ namespace ESPressio {
 
                 void SetOnTerminate(TOnThreadEvent value) override {
                     _onTerminate = value;
+                }
+
+                void SetOnTerminated(TOnThreadEvent value) override {
+                    _onTerminated = value;
                 }
 
                 void SetOnStateChange(TOnThreadStateChangeEvent value) override {
