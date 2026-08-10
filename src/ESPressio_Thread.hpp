@@ -291,7 +291,23 @@ namespace ESPressio {
                 }
 
                 void Terminate() override {
-                    SetThreadState(ThreadState::Terminating);
+                    switch (GetThreadState()) {
+                        case ThreadState::Uninitialized:
+                            SetThreadState(ThreadState::Terminating);
+                            SetThreadState(ThreadState::Terminated);
+                            return;
+
+                        case ThreadState::Initialized:
+                        case ThreadState::Running:
+                        case ThreadState::Paused:
+                            SetThreadState(ThreadState::Terminating);
+                            return;
+
+                        case ThreadState::Terminating:
+                        case ThreadState::Terminated:
+                        case ThreadState::Destroyed:
+                            return;
+                    }
                 }
 
                 void Start() override {
