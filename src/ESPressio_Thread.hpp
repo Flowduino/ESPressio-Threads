@@ -87,6 +87,34 @@ namespace ESPressio {
                         }
                     }
                 }
+
+                void _dispatchThreadStateChange(
+                    ThreadState oldState,
+                    ThreadState newState
+                ) {
+                    if (_onStateChange != nullptr) {
+                        _onStateChange(this, oldState, newState);
+                    }
+
+                    switch (newState) {
+                        case ThreadState::Terminated:
+                            if (_onTerminate != nullptr) { _onTerminate(this); }
+                            break;
+                        case ThreadState::Paused:
+                            if (_onPause != nullptr) { _onPause(this); }
+                            break;
+                        case ThreadState::Running:
+                            if (_onStart != nullptr) { _onStart(this); }
+                            break;
+                        case ThreadState::Initialized:
+                            if (_onInitialize != nullptr) { _onInitialize(this); }
+                            break;
+                        case ThreadState::Uninitialized:
+                        case ThreadState::Terminating:
+                        case ThreadState::Destroyed:
+                            break;
+                    }
+                }
             protected:
             // Methods
 
@@ -98,36 +126,49 @@ namespace ESPressio {
 
             // Getters (Internal)
 
-            
 
             // Setters (Internal)
-                
+
                 void SetThreadState(ThreadState state) {
-                    ThreadState oldState = _threadState.Get();
-                    if (oldState == state) { return; }
-                    _threadState.Set(state);
-                    if (_onStateChange != nullptr) { _onStateChange(this, oldState, state); }
-                    switch (state) {
-                        case ThreadState::Terminated:
-                            if (_onTerminate != nullptr) { _onTerminate(this); }
-                            break;
-                        case ThreadState::Terminating:
-                            break;
-                        case ThreadState::Paused:
-                            if (_onPause != nullptr) { _onPause(this); }
-                            break;
-                        case ThreadState::Running:
-                            if (_onStart != nullptr) { _onStart(this); }
-                            break;
-                        case ThreadState::Initialized:
-                            if (_onInitialize != nullptr) { _onInitialize(this); }
-                            break;
-                        case ThreadState::Destroyed:
-                        case ThreadState::Uninitialized:
-                            // Do nothing (yet)
-                            break;
-                    
+                    ThreadState oldState = state;
+                    bool changed = false;
+
+                    _threadState.WithWriteLock([&](ThreadState& currentState) {
+                        if (currentState == state) {
+                            return;
+                        }
+
+                        oldState = currentState;
+                        currentState = state;
+                        changed = true;
+                    });
+
+                    if (changed) {
+                        _dispatchThreadStateChange(oldState, state);
                     }
+                }
+
+                bool TrySetThreadState(
+                    ThreadState expectedState,
+                    ThreadState newState
+                ) {
+                    bool changed = false;
+
+                    _threadState.WithWriteLock([&](ThreadState& currentState) {
+                        if (currentState != expectedState ||
+                            currentState == newState) {
+                            return;
+                        }
+
+                        currentState = newState;
+                        changed = true;
+                    });
+
+                    if (changed) {
+                        _dispatchThreadStateChange(expectedState, newState);
+                    }
+
+                    return changed;
                 }
             public:
 
@@ -356,9 +397,10 @@ namespace ESPressio {
                 }
 
                 void Pause() override {
-                    if (GetThreadState() == ThreadState::Running) {
-                        SetThreadState(ThreadState::Paused);
-                    }
+                    TrySetThreadState(
+                        ThreadState::Running,
+                        ThreadState::Paused
+                    );
                 }
 
             // Getters
