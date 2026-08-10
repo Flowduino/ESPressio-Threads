@@ -172,11 +172,28 @@ namespace ESPressio {
                 }
 
                 void Start() override {
-                    if (GetThreadState() == ThreadState::Terminated) {
-                        Initialize();
+
+                    switch (GetThreadState()) {
+                        case ThreadState::Uninitialized:
+                        case ThreadState::Terminated:
+                            Initialize();
+
+                            if (GetThreadState() == ThreadState::Initialized) {
+                                SetThreadState(ThreadState::Running);
+                                if (_onStart != nullptr) { _onStart(this); }
+                            }
+                            return;
+
+                        case ThreadState::Initialized:
+                        case ThreadState::Paused:
+                            SetThreadState(ThreadState::Running);
+                            return;
+
+                        case ThreadState::Running:
+                        case ThreadState::Terminating:
+                        case ThreadState::Destroyed:
+                            return;
                     }
-                    SetThreadState(ThreadState::Running);
-                    if (_onStart != nullptr) { _onStart(this); }
                 }
 
                 void Pause() override {
