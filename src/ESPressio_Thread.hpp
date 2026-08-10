@@ -141,8 +141,16 @@ namespace ESPressio {
                         return;
                     }
 
+                    // A replacement task must not observe Terminated and exit
+                    // before Initialize() has finished publishing its handle.
+                    if (GetThreadState() == ThreadState::Terminated) {
+                        _threadState.Set(ThreadState::Uninitialized);
+                    }
+
                     std::string threadName =
                         "thread" + std::to_string(GetThreadID());
+
+                    TaskHandle_t createdTask = nullptr;
 
                     const BaseType_t result = xTaskCreatePinnedToCore(
                         [](void* parameter) {
@@ -159,7 +167,7 @@ namespace ESPressio {
                         GetStackSize(),
                         this,
                         GetPriority(),
-                        &_taskHandle,
+                        &createdTask,
                         GetCoreID()
                     );
 
@@ -167,6 +175,8 @@ namespace ESPressio {
                         _taskHandle = nullptr;
                         return;
                     }
+
+                    _taskHandle = createdTask;
 
                     OnInitialization();
 
@@ -196,7 +206,6 @@ namespace ESPressio {
 
                             if (GetThreadState() == ThreadState::Initialized) {
                                 SetThreadState(ThreadState::Running);
-                                if (_onStart != nullptr) { _onStart(this); }
                             }
                             return;
 
