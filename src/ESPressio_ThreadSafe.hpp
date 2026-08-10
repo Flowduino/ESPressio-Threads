@@ -37,6 +37,28 @@ namespace ESPressio {
                 virtual void WithWriteLock(std::function<void(T&)> callback) = 0;
                 virtual bool TryWithReadLock(std::function<void(T&)> callback) = 0;
                 virtual bool TryWithWriteLock(std::function<void(T&)> callback) = 0;
+
+                /// Invokes an immutable callback while holding a read lock.
+                /// The default implementation preserves compatibility with
+                /// existing IThreadSafe implementations.
+                virtual void WithSharedReadLock(
+                    std::function<void(const T&)> callback
+                ) {
+                    WithReadLock([&](T& value) {
+                        callback(value);
+                    });
+                }
+
+                /// Attempts to invoke an immutable callback while holding a
+                /// read lock without blocking.
+                virtual bool TryWithSharedReadLock(
+                    std::function<void(const T&)> callback
+                ) {
+                    return TryWithReadLock([&](T& value) {
+                        callback(value);
+                    });
+                }
+
                 virtual void ReleaseLock() = 0;
         };
 
@@ -136,6 +158,27 @@ namespace ESPressio {
                     return TryWithReadLock(callback);
                 }
 
+                void WithSharedReadLock(
+                    std::function<void(const T&)> callback
+                ) override {
+                    std::lock_guard<std::mutex> lock(_mutex);
+                    callback(_value);
+                }
+
+                bool TryWithSharedReadLock(
+                    std::function<void(const T&)> callback
+                ) override {
+                    std::unique_lock<std::mutex> lock(
+                        _mutex,
+                        std::try_to_lock
+                    );
+                    if (!lock.owns_lock()) {
+                        return false;
+                    }
+                    callback(_value);
+                    return true;
+                }
+
                 /// Releases the Lock on the `Mutex` object.
                 /// You should only call this if you have previously called `IsLocked` and it returned `false`, or if you need to release the lock prior to the end of scope.
                 void ReleaseLock() override {
@@ -222,12 +265,35 @@ namespace ESPressio {
 
                 /// Invokes the provided `callback` with the `ReadWriteMutex` object locked.
                 void WithReadLock(std::function<void(T&)> callback) override {
-                    std::shared_lock<std::shared_mutex> lock(_mutex);
+                    // A mutable T& cannot safely be exposed under a shared
+                    // lock, because concurrent callbacks could modify it.
+                    std::unique_lock<std::shared_mutex> lock(_mutex);
                     callback(_value);
                 }
 
                 /// Invokes the provided `callback` with the `ReadWriteMutex` object locked, returning `false` if the thread-safe lock was not obtained.
                 bool TryWithReadLock(std::function<void(T&)> callback) override {
+                    std::unique_lock<std::shared_mutex> lock(
+                        _mutex,
+                        std::try_to_lock
+                    );
+                    if (!lock.owns_lock()) {
+                        return false;
+                    }
+                    callback(_value);
+                    return true;
+                }
+
+                void WithSharedReadLock(
+                    std::function<void(const T&)> callback
+                ) override {
+                    std::shared_lock<std::shared_mutex> lock(_mutex);
+                    callback(_value);
+                }
+
+                bool TryWithSharedReadLock(
+                    std::function<void(const T&)> callback
+                ) override {
                     std::shared_lock<std::shared_mutex> lock(
                         _mutex,
                         std::try_to_lock

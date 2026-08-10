@@ -147,7 +147,7 @@ namespace ESPressio {
                 /// Returns the requested `Thread` by ID
                 IThread* GetThread(uint8_t threadID) {
                     IThread* result = nullptr;
-                    _threads.WithReadLock([threadID, &result](std::vector<IThread*>& threads) {
+                    _threads.WithSharedReadLock([threadID, &result](const std::vector<IThread*>& threads) {
                         for (auto thread : threads) {
                             if (thread->GetThreadID() == threadID) {
                                 result = thread;
@@ -186,7 +186,7 @@ namespace ESPressio {
 
                 /// Initializes all Threads in the `ThreadManager`.
                 void Initialize() {
-                    _threads.WithReadLock([](std::vector<IThread*>& threads) {
+                    _threads.WithSharedReadLock([](const std::vector<IThread*>& threads) {
                         for (auto thread : threads) {
                             thread->Initialize();
                         }
@@ -195,7 +195,7 @@ namespace ESPressio {
 
                 std::size_t GetThreadCount() {
                     std::size_t result = 0;
-                    _threads.WithReadLock([&result](std::vector<IThread*>& threads) {
+                    _threads.WithSharedReadLock([&result](const std::vector<IThread*>& threads) {
                         result = threads.size();
                     });
                     return result;
