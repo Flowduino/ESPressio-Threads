@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include <atomic>
 #include <functional>
 #include <string>
 
@@ -39,7 +40,7 @@ namespace ESPressio {
                 ReadWriteMutex<ThreadState> _threadState = ReadWriteMutex<ThreadState>(ThreadState::Uninitialized);
                 ReadWriteMutex<bool> _freeOnTerminate = ReadWriteMutex<bool>(false);
                 ReadWriteMutex<bool> _startOnInitialize = ReadWriteMutex<bool>(true);
-                TaskHandle_t _taskHandle = NULL; // SHOULD be Atomic!
+                std::atomic<TaskHandle_t> _taskHandle{nullptr};
                 ReadWriteMutex<uint32_t> _stackSize = ReadWriteMutex<uint32_t>(ESPRESSIO_THREAD_DEFAULT_STACK_SIZE);
                 ReadWriteMutex<unsigned int> _priority = ReadWriteMutex<unsigned int>(2);
                 ReadWriteMutex<int> _coreID = ReadWriteMutex<int>(0);
@@ -53,9 +54,10 @@ namespace ESPressio {
 
             // Methods
                 void _deleteTask() {
-                    if (_taskHandle != NULL) {
-                        TaskHandle_t handle = _taskHandle;
-                        _taskHandle = NULL;
+                    TaskHandle_t handle =
+                        _taskHandle.exchange(nullptr, std::memory_order_acq_rel);
+
+                    if (handle != nullptr) {
                         vTaskDelete(handle);
                     }
                 }
@@ -137,7 +139,7 @@ namespace ESPressio {
                 void GarbageCollect();
 
                 void Initialize() override {
-                    if (_taskHandle != nullptr) {
+                    if (_taskHandle.load(std::memory_order_acquire) != nullptr) {
                         return;
                     }
 
@@ -158,7 +160,18 @@ namespace ESPressio {
 
                             if (instance != nullptr) {
                                 instance->_loop();
-                                instance->_taskHandle = nullptr;
+
+                                const TaskHandle_t currentTask =
+                                    xTaskGetCurrentTaskHandle();
+                                TaskHandle_t expected = currentTask;
+
+                                instance->_taskHandle.compare_exchange_strong(
+                                    expected,
+                                    nullptr,
+                                    std::memory_order_acq_rel,
+                                    std::memory_order_acquire
+                                );
+
                                 instance->SetThreadState(ThreadState::Terminated);
                             }
                             vTaskDelete(nullptr);
@@ -172,11 +185,19 @@ namespace ESPressio {
                     );
 
                     if (result != pdPASS) {
-                        _taskHandle = nullptr;
                         return;
                     }
 
-                    _taskHandle = createdTask;
+                    TaskHandle_t expected = nullptr;
+
+                    if (!_taskHandle.compare_exchange_strong(
+                            expected,
+                            createdTask,
+                            std::memory_order_release,
+                            std::memory_order_acquire)) {
+                        vTaskDelete(createdTask);
+                        return;
+                    }
 
                     OnInitialization();
 
