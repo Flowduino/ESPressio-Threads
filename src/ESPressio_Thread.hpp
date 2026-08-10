@@ -48,6 +48,7 @@ namespace ESPressio {
                 ReadWriteMutex<bool> _startOnInitialize = ReadWriteMutex<bool>(true);
                 std::atomic<TaskHandle_t> _taskHandle{nullptr};
                 SemaphoreHandle_t _taskExited = xSemaphoreCreateBinary();
+                mutable std::mutex _taskConfigurationMutex;
                 ReadWriteMutex<uint32_t> _stackSize = ReadWriteMutex<uint32_t>(ESPRESSIO_THREAD_DEFAULT_STACK_SIZE);
                 ReadWriteMutex<unsigned int> _priority = ReadWriteMutex<unsigned int>(2);
                 ReadWriteMutex<int> _coreID = ReadWriteMutex<int>(0);
@@ -113,7 +114,10 @@ namespace ESPressio {
                             case ThreadState::Paused:
                             case ThreadState::Initialized:
                             case ThreadState::Uninitialized:
-                                vTaskDelay(pdMS_TO_TICKS(1));
+                                {
+                                    const auto delayTicks = pdMS_TO_TICKS(1);
+                                    vTaskDelay(delayTicks > 0 ? delayTicks : 1);
+                                }
                                 break;
                             case ThreadState::Running:
                                 OnLoop();
@@ -169,7 +173,10 @@ namespace ESPressio {
             // Methods
 
                 /// Override `OnLoop` to provide the main loop for the Thread.
-                virtual void OnLoop() {}
+                virtual void OnLoop() {
+                    const auto delayTicks = pdMS_TO_TICKS(1);
+                    vTaskDelay(delayTicks > 0 ? delayTicks : 1);
+                }
 
                 /// Override `OnInitialization` to perform any setup required for the Thread before the Loop begins.
                 virtual void OnInitialization() {}
@@ -291,6 +298,16 @@ namespace ESPressio {
                         return;
                     }
 
+                    std::unique_lock<std::mutex> configurationLock(
+                        _taskConfigurationMutex
+                    );
+
+                    // Another initializer may have published a task while this
+                    // call waited for the configuration lock.
+                    if (_taskHandle.load(std::memory_order_acquire) != nullptr) {
+                        return;
+                    }
+
                     std::string threadName =
                         "thread" + std::to_string(GetThreadID());
 
@@ -380,6 +397,8 @@ namespace ESPressio {
                             xSemaphoreGive(instance->_taskExited);
                         }
                     );
+
+                    configurationLock.unlock();
 
                     OnInitialization();
 
@@ -550,15 +569,25 @@ namespace ESPressio {
             // Setters
 
                 void SetCoreID(int value) override {
-                    _coreID.Set(value);
+                    std::lock_guard<std::mutex> lock(_taskConfigurationMutex);
+                    if (_taskHandle.load(std::memory_order_acquire) == nullptr) {
+                        _coreID.Set(value);
+                    }
                 }
 
                 void SetStackSize(uint32_t value) override {
-                    _stackSize.Set(value);
+                    std::lock_guard<std::mutex> lock(_taskConfigurationMutex);
+                    if (_taskHandle.load(std::memory_order_acquire) == nullptr &&
+                        value > 0) {
+                        _stackSize.Set(value);
+                    }
                 }
 
                 void SetPriority(unsigned int value) override {
-                    _priority.Set(value);
+                    std::lock_guard<std::mutex> lock(_taskConfigurationMutex);
+                    if (_taskHandle.load(std::memory_order_acquire) == nullptr) {
+                        _priority.Set(value);
+                    }
                 }
 
                 void SetFreeOnTerminate(bool value) override {

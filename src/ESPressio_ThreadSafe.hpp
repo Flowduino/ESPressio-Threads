@@ -5,8 +5,10 @@
 // System Includes
 #define max max // Fixes bugs with mutex and std::max
 #define min min // Fixes bugs with mutex and std::min
+#include <functional>
 #include <mutex>
 #include <shared_mutex>
+#include <utility>
 
 // Library Includes
 
@@ -66,12 +68,11 @@ namespace ESPressio {
 
                 /// Returns a union consisting of a Boolean to denote if the value was able to be obtained (due to thread-safe locking) and the value itself (or the given `defaultValue` if the lock was not obtained).
                 std::pair<bool, T> TryGet(T defaultValue) override {
-                    if (!_mutex.try_lock()) {
+                    std::unique_lock<std::mutex> lock(_mutex, std::try_to_lock);
+                    if (!lock.owns_lock()) {
                         return std::make_pair(false, defaultValue);
                     }
-                    T value = _value;
-                    _mutex.unlock();
-                    return std::make_pair(true, value);
+                    return std::make_pair(true, _value);
                 }
 
                 /// Returns the OnChange Callback for the `Mutex` object.
@@ -90,11 +91,11 @@ namespace ESPressio {
 
                 /// Returns a boolean notifying you if the value was set successfully (assuming that the thread-safe lock was available at the point of request).
                 bool TrySet(T value) override {
-                    if (!_mutex.try_lock()) {
+                    std::unique_lock<std::mutex> lock(_mutex, std::try_to_lock);
+                    if (!lock.owns_lock()) {
                         return false;
                     }
                     _value = value;
-                    _mutex.unlock();
                     return true;
                 }
 
@@ -112,24 +113,22 @@ namespace ESPressio {
 
                 /// Invokes the provided `callback` with the `Mutex` object locked.
                 void WithReadLock(std::function<void(T&)> callback) override {
-                    _mutex.lock();
+                    std::lock_guard<std::mutex> lock(_mutex);
                     callback(_value);
-                    _mutex.unlock();
                 }
 
                 void WithWriteLock(std::function<void(T&)> callback) override {
-                    _mutex.lock();
+                    std::lock_guard<std::mutex> lock(_mutex);
                     callback(_value);
-                    _mutex.unlock();
                 }
 
                 /// Invokes the provided `callback` with the `Mutex` object locked, returning `false` if the thread-safe lock was not obtained.
                 bool TryWithReadLock(std::function<void(T&)> callback) override {
-                    if (!_mutex.try_lock()) {
+                    std::unique_lock<std::mutex> lock(_mutex, std::try_to_lock);
+                    if (!lock.owns_lock()) {
                         return false;
                     }
                     callback(_value);
-                    _mutex.unlock();
                     return true;
                 }
 
@@ -172,12 +171,14 @@ namespace ESPressio {
 
                 /// Returns a union consisting of a Boolean to denote if the value was able to be obtained (due to thread-safe locking) and the value itself (or the given `defaultValue` if the lock was not obtained).
                 std::pair<bool, T> TryGet(T defaultValue) override {
-                    if (!_mutex.try_lock_shared()) {
+                    std::shared_lock<std::shared_mutex> lock(
+                        _mutex,
+                        std::try_to_lock
+                    );
+                    if (!lock.owns_lock()) {
                         return std::make_pair(false, defaultValue);
                     }
-                    T value = _value;
-                    _mutex.unlock();
-                    return std::make_pair(true, value);
+                    return std::make_pair(true, _value);
                 }
 
                 /// Returns the OnChange Callback for the `ReadWriteMutex` object.
@@ -196,11 +197,14 @@ namespace ESPressio {
 
                 /// Returns a boolean notifying you if the value was set successfully (assuming that the thread-safe lock was available at the point of request).
                 bool TrySet(T value) override {
-                    if (!_mutex.try_lock()) {
+                    std::unique_lock<std::shared_mutex> lock(
+                        _mutex,
+                        std::try_to_lock
+                    );
+                    if (!lock.owns_lock()) {
                         return false;
                     }
                     _value = value;
-                    _mutex.unlock();
                     return true;
                 }
 
@@ -218,25 +222,27 @@ namespace ESPressio {
 
                 /// Invokes the provided `callback` with the `ReadWriteMutex` object locked.
                 void WithReadLock(std::function<void(T&)> callback) override {
-                    std::lock_guard<std::shared_mutex>
-                    lock(_mutex);
+                    std::shared_lock<std::shared_mutex> lock(_mutex);
                     callback(_value);
                 }
 
                 /// Invokes the provided `callback` with the `ReadWriteMutex` object locked, returning `false` if the thread-safe lock was not obtained.
                 bool TryWithReadLock(std::function<void(T&)> callback) override {
-                    if (!_mutex.try_lock_shared()) {
+                    std::shared_lock<std::shared_mutex> lock(
+                        _mutex,
+                        std::try_to_lock
+                    );
+                    if (!lock.owns_lock()) {
                         return false;
                     }
                     callback(_value);
-                    _mutex.unlock();
                     return true;
                 }
 
                 /// Releases the Lock on the `ReadWriteMutex` object.
                 /// You should only call this if you have previously called `IsLocked` and it returned `false`, or if you need to release the lock prior to the end of scope.
                 void ReleaseLock() override {
-                    _mutex.unlock();
+                    _mutex.unlock_shared();
                 }
 
                 /// Invokes the provided `callback` with the `ReadWriteMutex` object locked for writing.
@@ -247,11 +253,14 @@ namespace ESPressio {
 
                 /// Invokes the provided `callback` with the `ReadWriteMutex` object locked for writing, returning `false` if the thread-safe lock was not obtained.
                 bool TryWithWriteLock(std::function<void(T&)> callback) override {
-                    if (!_mutex.try_lock()) {
+                    std::unique_lock<std::shared_mutex> lock(
+                        _mutex,
+                        std::try_to_lock
+                    );
+                    if (!lock.owns_lock()) {
                         return false;
                     }
                     callback(_value);
-                    _mutex.unlock();
                     return true;
                 }
 

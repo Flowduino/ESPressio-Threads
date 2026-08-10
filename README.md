@@ -63,11 +63,13 @@ Please note that this will use the very latest commits pushed into the repositor
 Threads enable us to perform concurrent and/or parallel processing on our microcontroller devices.
 In the case of multi-core microcontrollers, such as the ESP32, we can achieve true concurrent execution by using the components provided here in the *ESPressio* Thread Library.
 
-By default, when an instance of a [`Thread`](#thread) descendant is created, presuming that you do not modify by calling `SetCoreID()` prior to initializing the instance, the Thread [`Manager`](#threadmanager) will automatically allocate the Thread to the next CPU Core.
+By default, when an instance of a [`Thread`](#thread) descendant is created, presuming that you do not modify by calling `SetCoreID()` prior to initializing the instance, the Thread [`Manager`](#threadmanager) will automatically allocate the Thread to the next available CPU Core. Single-core targets always use CPU 0.
 
 For example, by default, your first Thread Instance will occupy *CPU 0*, your second will occupy *CPU 1*, your third will co-occupy *CPU 0*.
 
 However, as hinted previously (and as you'll see later in this document) you can very easily define explicitly which CPU Core you want your `Thread` to run on.
+
+Core ID, stack size, and priority are creation-time settings. Their setters are ignored while a FreeRTOS task exists, ensuring the corresponding getters cannot report settings different from the running task. Terminate or shut down the Thread before changing these settings for its next initialization.
 
 Now, when your Microcontroller doesn't have multiple CPU Cores, or when you have multiple threads co-tenanting the same CPU Cores, Threads will operate on the princpals of *Time Slicing*. This is where `Thread`s are executed in *Parallel* (not the same as *Concurrent*), and they each get slices of time within which to continue execution.
 

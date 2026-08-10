@@ -3,8 +3,11 @@
 // define CORE_THREADING_DEBUG in your project to enable debugging!
 
 // System Includes
-#include <vector>
+#include <algorithm>
+#include <cstddef>
 #include <functional>
+#include <limits>
+#include <vector>
 
 // Library Includes
 #include "ESPressio_ThreadSafe.hpp"
@@ -24,6 +27,16 @@ namespace ESPressio {
                 // Members
                 ReadWriteMutex<std::vector<IThread*>> _threads;
                 ReadWriteMutex<int> _nextCoreID = ReadWriteMutex<int>(0);
+
+                static int _getCoreCount() {
+                    #if defined(portNUM_PROCESSORS)
+                        return portNUM_PROCESSORS > 0 ? portNUM_PROCESSORS : 1;
+                    #elif defined(configNUMBER_OF_CORES)
+                        return configNUMBER_OF_CORES > 0 ? configNUMBER_OF_CORES : 1;
+                    #else
+                        return 1;
+                    #endif
+                }
                 
             protected:
                 ThreadManager() : _threads(std::vector<IThread*>()) {
@@ -37,14 +50,68 @@ namespace ESPressio {
                 }
 
                 /// Adds a Thread to the `ThreadManager` for management.
-                int AddThread(IThread* thread) {
-                    _threads.WithWriteLock([thread](std::vector<IThread*>& threads) {
-                        threads.push_back(thread);
+                int AddThread(
+                    IThread* thread,
+                    uint8_t* assignedThreadID = nullptr
+                ) {
+                    _threads.WithWriteLock([&](std::vector<IThread*>& threads) {
+                        if (assignedThreadID != nullptr) {
+                            *assignedThreadID = 0;
+                            bool assigned = false;
+
+                            for (unsigned int candidate = 1;
+                                 candidate <= std::numeric_limits<uint8_t>::max();
+                                 ++candidate) {
+                                const uint8_t candidateID =
+                                    static_cast<uint8_t>(candidate);
+                                const bool inUse = std::any_of(
+                                    threads.begin(),
+                                    threads.end(),
+                                    [candidateID](IThread* existingThread) {
+                                        return existingThread->GetThreadID() == candidateID;
+                                    }
+                                );
+
+                                if (!inUse) {
+                                    *assignedThreadID = candidateID;
+                                    assigned = true;
+                                    break;
+                                }
+                            }
+
+                            // Preserve the existing one-based IDs until all
+                            // 255 are occupied, then use zero as the final
+                            // distinct uint8_t value.
+                            if (!assigned) {
+                                const bool zeroInUse = std::any_of(
+                                    threads.begin(),
+                                    threads.end(),
+                                    [](IThread* existingThread) {
+                                        return existingThread->GetThreadID() == 0;
+                                    }
+                                );
+
+                                if (!zeroInUse) {
+                                    assigned = true;
+                                }
+                            }
+
+                            if (!assigned) {
+                                return;
+                            }
+                        }
+
+                        if (std::find(threads.begin(), threads.end(), thread) ==
+                            threads.end()) {
+                            threads.push_back(thread);
+                        }
                     });
+
                     int useCore = 0;
                     _nextCoreID.WithWriteLock([&useCore](int& nextCoreID) {
-                        useCore = nextCoreID;
-                        nextCoreID = (nextCoreID + 1) % 2;
+                        const int coreCount = _getCoreCount();
+                        useCore = nextCoreID % coreCount;
+                        nextCoreID = (useCore + 1) % coreCount;
                     });
                     return useCore;
                 }
@@ -104,12 +171,17 @@ namespace ESPressio {
                                 deleteThreads.push_back(thread);
                             }
                         }
-                        // Now iterate deleteThreads and remove them from the threads list
+
                         for (auto thread : deleteThreads) {
                             threads.erase(std::remove(threads.begin(), threads.end(), thread), threads.end());
-                            delete thread;
                         }
                     });
+
+                    // Destructors and callbacks may access ThreadManager, so
+                    // deletion must happen after releasing the manager lock.
+                    for (auto thread : deleteThreads) {
+                        delete thread;
+                    }
                 }
 
                 /// Initializes all Threads in the `ThreadManager`.
@@ -121,8 +193,8 @@ namespace ESPressio {
                     });
                 }
 
-                uint8_t GetThreadCount() {
-                    uint8_t result = 0;
+                std::size_t GetThreadCount() {
+                    std::size_t result = 0;
                     _threads.WithReadLock([&result](std::vector<IThread*>& threads) {
                         result = threads.size();
                     });
