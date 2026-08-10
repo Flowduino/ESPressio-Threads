@@ -144,7 +144,7 @@ namespace ESPressio {
                             }
 
                             if (!assigned) {
-                                return;
+                                throw ThreadLimitExceededException();
                             }
                         }
 

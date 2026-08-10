@@ -35,6 +35,7 @@ namespace ESPressio {
 
         // Forward Declaration for `ThreadGarbageCollector`
         class ThreadGarbageCollector;
+        class ThreadTerminationDispatcher;
 
         /*
             `Thread` is a class that represents a "standard" Thread in the system.
@@ -57,6 +58,7 @@ namespace ESPressio {
                 std::atomic<TaskHandle_t> _taskHandle{nullptr};
                 std::atomic<TaskHandle_t> _initializingTaskHandle{nullptr};
                 std::atomic<bool> _initializationInProgress{false};
+                std::atomic<bool> _terminationDispatchPending{false};
                 SemaphoreHandle_t _taskExited = xSemaphoreCreateBinary();
                 mutable std::mutex _taskConfigurationMutex;
                 ReadWriteMutex<uint32_t> _stackSize = ReadWriteMutex<uint32_t>(ESPRESSIO_THREAD_DEFAULT_STACK_SIZE);
@@ -119,6 +121,9 @@ namespace ESPressio {
                 }
 
                 static void _requestGarbageCollection();
+                static bool _isTerminationDispatcherAvailable();
+                static bool _queueTerminationDispatch(Thread* thread);
+                void _dispatchTermination();
                 
                 void _loop() {
                     for (;;) {
@@ -244,6 +249,8 @@ namespace ESPressio {
                 }
             public:
 
+                friend class ThreadTerminationDispatcher;
+
 
             // Constructor/Destructor
                 Thread();
@@ -298,13 +305,22 @@ namespace ESPressio {
                     xSemaphoreTake(_taskExited, portMAX_DELAY);
                 }
 
-                void Initialize() override {
+                ThreadInitializationStatus Initialize() override {
                     if (_taskExited == nullptr) {
-                        return;
+                        return ThreadInitializationStatus::ExitSignalUnavailable;
                     }
 
                     if (_taskHandle.load(std::memory_order_acquire) != nullptr) {
-                        return;
+                        return ThreadInitializationStatus::AlreadyInitialized;
+                    }
+
+                    if (_terminationDispatchPending.load(
+                            std::memory_order_acquire)) {
+                        return ThreadInitializationStatus::TerminationDispatchPending;
+                    }
+
+                    if (!_isTerminationDispatcherAvailable()) {
+                        return ThreadInitializationStatus::TerminationDispatcherUnavailable;
                     }
 
                     const ThreadState initialState = GetThreadState();
@@ -315,10 +331,10 @@ namespace ESPressio {
                         if (!TrySetThreadState(
                                 ThreadState::Terminated,
                                 ThreadState::Uninitialized)) {
-                            return;
+                            return ThreadInitializationStatus::InvalidState;
                         }
                     } else if (initialState != ThreadState::Uninitialized) {
-                        return;
+                        return ThreadInitializationStatus::InvalidState;
                     }
 
                     std::unique_lock<std::mutex> configurationLock(
@@ -328,7 +344,7 @@ namespace ESPressio {
                     // Another initializer may have published a task while this
                     // call waited for the configuration lock.
                     if (_taskHandle.load(std::memory_order_acquire) != nullptr) {
-                        return;
+                        return ThreadInitializationStatus::AlreadyInitialized;
                     }
 
                     std::string threadName =
@@ -349,6 +365,13 @@ namespace ESPressio {
 
                             if (instance != nullptr) {
                                 instance->_loop();
+
+                                // Prevent restart between publishing task exit
+                                // and enqueueing asynchronous termination work.
+                                instance->_terminationDispatchPending.store(
+                                    true,
+                                    std::memory_order_release
+                                );
 
                                 const TaskHandle_t currentTask =
                                     xTaskGetCurrentTaskHandle();
@@ -377,7 +400,7 @@ namespace ESPressio {
                     );
 
                     if (result != pdPASS) {
-                        return;
+                        return ThreadInitializationStatus::TaskCreationFailed;
                     }
 
                     TaskHandle_t expected = nullptr;
@@ -388,7 +411,7 @@ namespace ESPressio {
                             std::memory_order_release,
                             std::memory_order_acquire)) {
                         vTaskDelete(createdTask);
-                        return;
+                        return ThreadInitializationStatus::ConcurrentInitializationLost;
                     }
 
                     vTaskSetThreadLocalStoragePointerAndDelCallback(
@@ -402,25 +425,34 @@ namespace ESPressio {
                                 return;
                             }
 
-                            const bool terminated =
-                                instance->GetThreadState() == ThreadState::Terminated;
-                            const bool shouldGarbageCollect =
-                                terminated && instance->GetFreeOnTerminate();
-                            const SemaphoreHandle_t taskExited =
-                                instance->_taskExited;
-                            TOnThreadEvent onTerminated =
-                                instance->GetOnTerminated();
-
-                            if (terminated && onTerminated != nullptr) {
-                                onTerminated(instance);
+                            if (instance->GetThreadState() !=
+                                ThreadState::Terminated) {
+                                instance->_terminationDispatchPending.store(
+                                    false,
+                                    std::memory_order_release
+                                );
+                                if (instance->_taskExited != nullptr) {
+                                    xSemaphoreGive(instance->_taskExited);
+                                }
+                                return;
                             }
 
-                            // Do not dereference instance after invoking user
-                            // code: the callback may alter its ownership.
-                            if (shouldGarbageCollect) {
-                                Thread::_requestGarbageCollection();
-                            } else if (taskExited != nullptr) {
-                                xSemaphoreGive(taskExited);
+                            instance->_terminationDispatchPending.store(
+                                true,
+                                std::memory_order_release
+                            );
+
+                            if (!Thread::_queueTerminationDispatch(instance)) {
+                                instance->_terminationDispatchPending.store(
+                                    false,
+                                    std::memory_order_release
+                                );
+
+                                if (instance->GetFreeOnTerminate()) {
+                                    Thread::_requestGarbageCollection();
+                                } else if (instance->_taskExited != nullptr) {
+                                    xSemaphoreGive(instance->_taskExited);
+                                }
                             }
                         }
                     );
@@ -456,12 +488,12 @@ namespace ESPressio {
                     if (stateAfterInitialization == ThreadState::Terminating) {
                         SetThreadState(ThreadState::Terminated);
                         _deleteTask();
-                        return;
+                        return ThreadInitializationStatus::TerminatedDuringInitialization;
                     }
 
                     if (stateAfterInitialization == ThreadState::Terminated) {
                         _deleteTask();
-                        return;
+                        return ThreadInitializationStatus::TerminatedDuringInitialization;
                     }
 
                     SetThreadState(ThreadState::Initialized);
@@ -471,12 +503,12 @@ namespace ESPressio {
                     if (stateAfterInitialized == ThreadState::Terminating) {
                         SetThreadState(ThreadState::Terminated);
                         _deleteTask();
-                        return;
+                        return ThreadInitializationStatus::TerminatedDuringInitialization;
                     }
 
                     if (stateAfterInitialized == ThreadState::Terminated) {
                         _deleteTask();
-                        return;
+                        return ThreadInitializationStatus::TerminatedDuringInitialization;
                     }
 
                     if (stateAfterInitialized == ThreadState::Initialized &&
@@ -485,6 +517,7 @@ namespace ESPressio {
                     }
 
                     xTaskNotifyGive(createdTask);
+                    return ThreadInitializationStatus::Success;
                 }
 
                 void Terminate() override {

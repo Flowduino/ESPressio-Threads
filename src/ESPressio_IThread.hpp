@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <stdexcept>
 
 namespace ESPressio {
 
@@ -16,6 +17,26 @@ namespace ESPressio {
             Terminating,
             Terminated,
             Destroyed
+        };
+
+        enum class ThreadInitializationStatus : uint8_t {
+            Success,
+            AlreadyInitialized,
+            InvalidState,
+            ExitSignalUnavailable,
+            TerminationDispatcherUnavailable,
+            TerminationDispatchPending,
+            TaskCreationFailed,
+            ConcurrentInitializationLost,
+            TerminatedDuringInitialization
+        };
+
+        class ThreadLimitExceededException : public std::runtime_error {
+            public:
+                ThreadLimitExceededException()
+                    : std::runtime_error(
+                        "ESPressio Threads supports at most 256 registered Threads"
+                    ) {}
         };
 
         /*
@@ -36,7 +57,7 @@ namespace ESPressio {
             // Methods
 
                 /// `Initialize` is invoked automatically for all Threads when the `ThreadManager` is initialized in your `main()` (or `setup()` for MCU projects) function.
-                virtual void Initialize() = 0;
+                virtual ThreadInitializationStatus Initialize() = 0;
 
                 /// `Terminate` is invoked automatically for all Threads when the `ThreadManager` is terminated in your `main()` (or `loop()` for MCU projects) function.
                 /// You can, however, invoke it manually to terminate a Thread at any time!

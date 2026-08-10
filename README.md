@@ -239,6 +239,18 @@ MyFirstThread::OnLoop() - Thread 2 - On CPU 1, Counter = 2
 
 The explicit maximum number of *ESPressio* `Thread`s supported by the library is 256, however the *practical limit* depends entirely on the specifications of your microcontroller. It's almost certainly going to be considerably lower than 256!
 
+Attempting to construct another registered Thread after all 256 IDs are occupied throws `ThreadLimitExceededException`. This library configuration therefore requires C++ exception support to be enabled.
+
+`Initialize()` returns `ThreadInitializationStatus`. `Success` means a task was created and initialization completed. The remaining values describe why initialization did not start or complete: `AlreadyInitialized`, `InvalidState`, `ExitSignalUnavailable`, `TerminationDispatcherUnavailable`, `TerminationDispatchPending`, `TaskCreationFailed`, `ConcurrentInitializationLost`, or `TerminatedDuringInitialization`.
+
+```cpp
+ThreadInitializationStatus status = thread1.Initialize();
+
+if (status != ThreadInitializationStatus::Success) {
+    // Handle or report the initialization outcome.
+}
+```
+
 ### The Thread Manager
 In the previous example, you'll see that we manually called `Initialize()` on each instance of `MyFirstThread`.
 
@@ -376,7 +388,7 @@ Directly destroying a running derived object without first calling `Shutdown()` 
 
 Calling `Shutdown()` claims manual ownership of destruction by disabling `FreeOnTerminate`. Consequently, code that explicitly shuts down a dynamically allocated Thread remains responsible for deleting it.
 
-Termination has two callback milestones. `SetOnTerminate()` registers a callback for the moment the Thread loop enters the `Terminated` state. `SetOnTerminated()` registers a callback that runs later, from FreeRTOS task cleanup, after task execution has ended. Use `SetOnTerminated()` when cleanup depends on the worker no longer executing `OnLoop()`.
+Termination has two callback milestones. `SetOnTerminate()` registers a callback for the moment the Thread loop enters the `Terminated` state. `SetOnTerminated()` runs later on the dedicated termination-dispatcher task, after FreeRTOS task execution has ended. Use `SetOnTerminated()` when cleanup depends on the worker no longer executing `OnLoop()`. The dispatcher keeps TLS cleanup short and permits ordinary callback work without blocking the FreeRTOS cleanup context.
 
 An `OnTerminated` callback must not directly delete its sender. The automatic-cleanup decision is captured before the callback begins, so changing `FreeOnTerminate` inside this callback affects future lifecycles rather than the cleanup already in progress. After the callback returns, the library performs only operations captured before user code ran and does not dereference the Thread object again.
 
