@@ -17,6 +17,10 @@ namespace ESPressio {
             if (_onDestroy != nullptr) { _onDestroy(this); }
             SetThreadState(ThreadState::Destroyed);
             _deleteTask();
+            if (_taskExited != nullptr) {
+                vSemaphoreDelete(_taskExited);
+                _taskExited = nullptr;
+            }
         }
 
         void Thread::GarbageCollect() {

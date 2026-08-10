@@ -326,6 +326,37 @@ At that moment, the *Automatic Garbage Collector* will be awoken, and will take 
 
 It's also good to know that the *Automatic Garbage Collector* is a "good citizen" and doesn't take up undue memory or clock cycles when it doesn't have any garbage to collect.
 
+### Safely Destroying Derived Threads
+
+`Thread` provides a `Shutdown()` method for derived types. It requests termination and waits until the underlying FreeRTOS task has stopped accessing the object.
+
+If a derived class has members that are used by `OnLoop()`, its destructor must call `Shutdown()` before those members are destroyed:
+
+```cpp
+class MyWorkerThread : public Thread {
+    private:
+        SomeResource _resource;
+
+    protected:
+        void OnLoop() override {
+            _resource.DoWork();
+        }
+
+    public:
+        ~MyWorkerThread() override {
+            Shutdown();
+        }
+};
+```
+
+This is source-compatible with existing derived classes: no new virtual method needs to be implemented. Existing classes that are always terminated before destruction do not require a change. Derived classes that may be destroyed while running should add the destructor pattern above.
+
+Do not call `Shutdown()` from `OnLoop()` or from code executing on the Thread's own FreeRTOS task. Call `Terminate()` there instead; the worker will finish its current loop iteration and exit normally.
+
+Directly destroying a running derived object without first calling `Shutdown()` is unsupported. C++ destroys derived members before it invokes the base `Thread` destructor, so the base destructor cannot protect members that `OnLoop()` may still be using.
+
+Calling `Shutdown()` claims manual ownership of destruction by disabling `FreeOnTerminate`. Consequently, code that explicitly shuts down a dynamically allocated Thread remains responsible for deleting it.
+
 ## Thread-Safe Members (Properties)
 When working with multiple Threads (*especially on multi-core hardware such as the ESP32 microcontrollers*) it is absolutely critical that we identify any and all *members* (properties) within our Objects that may be simultainously accessed (be that read or write) by multiple Threads at any given moment.
 

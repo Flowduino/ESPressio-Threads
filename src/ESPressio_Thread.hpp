@@ -2,6 +2,7 @@
 
 // FreeRTOS includes
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 
 #include <atomic>
@@ -45,6 +46,7 @@ namespace ESPressio {
                 ReadWriteMutex<bool> _freeOnTerminate = ReadWriteMutex<bool>(false);
                 ReadWriteMutex<bool> _startOnInitialize = ReadWriteMutex<bool>(true);
                 std::atomic<TaskHandle_t> _taskHandle{nullptr};
+                SemaphoreHandle_t _taskExited = xSemaphoreCreateBinary();
                 ReadWriteMutex<uint32_t> _stackSize = ReadWriteMutex<uint32_t>(ESPRESSIO_THREAD_DEFAULT_STACK_SIZE);
                 ReadWriteMutex<unsigned int> _priority = ReadWriteMutex<unsigned int>(2);
                 ReadWriteMutex<int> _coreID = ReadWriteMutex<int>(0);
@@ -141,7 +143,41 @@ namespace ESPressio {
             // Methods
                 void GarbageCollect();
 
+                /// Requests termination and waits until the FreeRTOS task no
+                /// longer accesses this object. Derived destructors should call
+                /// this before destroying members used by OnLoop().
+                void Shutdown() {
+                    // A caller running inside this Thread cannot wait for its
+                    // own task deletion callback.
+                    const TaskHandle_t handle =
+                        _taskHandle.load(std::memory_order_acquire);
+
+                    if (handle == nullptr) {
+                        if (GetThreadState() != ThreadState::Terminated &&
+                            GetThreadState() != ThreadState::Destroyed) {
+                            Terminate();
+                            SetThreadState(ThreadState::Terminated);
+                        }
+                        return;
+                    }
+
+                    if (handle == xTaskGetCurrentTaskHandle()) {
+                        Terminate();
+                        return;
+                    }
+
+                    // Explicit shutdown owns object destruction, so automatic
+                    // garbage collection must not race the waiting caller.
+                    SetFreeOnTerminate(false);
+                    Terminate();
+                    xSemaphoreTake(_taskExited, portMAX_DELAY);
+                }
+
                 void Initialize() override {
+                    if (_taskExited == nullptr) {
+                        return;
+                    }
+
                     if (_taskHandle.load(std::memory_order_acquire) != nullptr) {
                         return;
                     }
@@ -156,6 +192,9 @@ namespace ESPressio {
                         "thread" + std::to_string(GetThreadID());
 
                     TaskHandle_t createdTask = nullptr;
+
+                    // Remove the completion signal left by a previous task.
+                    xSemaphoreTake(_taskExited, 0);
 
                     const BaseType_t result = xTaskCreatePinnedToCore(
                         [](void* parameter) {
@@ -213,11 +252,17 @@ namespace ESPressio {
                         [](int, void* value) {
                             Thread* instance = static_cast<Thread*>(value);
 
-                            if (instance != nullptr &&
-                                instance->GetThreadState() == ThreadState::Terminated &&
+                            if (instance == nullptr) {
+                                return;
+                            }
+
+                            if (instance->GetThreadState() == ThreadState::Terminated &&
                                 instance->GetFreeOnTerminate()) {
                                 instance->GarbageCollect();
+                                return;
                             }
+
+                            xSemaphoreGive(instance->_taskExited);
                         }
                     );
 
