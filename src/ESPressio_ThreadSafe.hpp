@@ -114,20 +114,48 @@ namespace ESPressio {
                 }
 
                 void Set(T value) override {
-                    std::lock_guard<std::mutex> lock(_mutex);
-                    T oldValue = _value;
-                    if (_onCompare(oldValue, value)) { return; }
-                    _value = value;
-                    if (_onChange != nullptr) { (_onChange)(oldValue, value); }
+                    T oldValue = value;
+                    std::function<void(T,T)> onChange;
+
+                    {
+                        std::lock_guard<std::mutex> lock(_mutex);
+                        oldValue = _value;
+                        if (_onCompare(oldValue, value)) { return; }
+                        _value = value;
+                        onChange = _onChange;
+                    }
+
+                    if (onChange != nullptr) {
+                        onChange(oldValue, value);
+                    }
                 }
 
                 /// Returns a boolean notifying you if the value was set successfully (assuming that the thread-safe lock was available at the point of request).
                 bool TrySet(T value) override {
-                    std::unique_lock<std::mutex> lock(_mutex, std::try_to_lock);
-                    if (!lock.owns_lock()) {
-                        return false;
+                    T oldValue = value;
+                    std::function<void(T,T)> onChange;
+
+                    {
+                        std::unique_lock<std::mutex> lock(
+                            _mutex,
+                            std::try_to_lock
+                        );
+                        if (!lock.owns_lock()) {
+                            return false;
+                        }
+
+                        oldValue = _value;
+                        if (_onCompare(oldValue, value)) {
+                            return true;
+                        }
+                        _value = value;
+                        onChange = _onChange;
                     }
-                    _value = value;
+
+                    if (onChange != nullptr) {
+                        onChange(oldValue, value);
+                    }
+
                     return true;
                 }
 
@@ -249,23 +277,48 @@ namespace ESPressio {
                 }
 
                 void Set(T value) override {
-                    std::unique_lock<std::shared_mutex> lock(_mutex);
-                    T oldValue = _value;
-                    if (_onCompare(oldValue, value)) { return; }
-                    _value = value;
-                    if (_onChange != nullptr) { (_onChange)(oldValue, value); }
+                    T oldValue = value;
+                    std::function<void(T,T)> onChange;
+
+                    {
+                        std::unique_lock<std::shared_mutex> lock(_mutex);
+                        oldValue = _value;
+                        if (_onCompare(oldValue, value)) { return; }
+                        _value = value;
+                        onChange = _onChange;
+                    }
+
+                    if (onChange != nullptr) {
+                        onChange(oldValue, value);
+                    }
                 }
 
                 /// Returns a boolean notifying you if the value was set successfully (assuming that the thread-safe lock was available at the point of request).
                 bool TrySet(T value) override {
-                    std::unique_lock<std::shared_mutex> lock(
-                        _mutex,
-                        std::try_to_lock
-                    );
-                    if (!lock.owns_lock()) {
-                        return false;
+                    T oldValue = value;
+                    std::function<void(T,T)> onChange;
+
+                    {
+                        std::unique_lock<std::shared_mutex> lock(
+                            _mutex,
+                            std::try_to_lock
+                        );
+                        if (!lock.owns_lock()) {
+                            return false;
+                        }
+
+                        oldValue = _value;
+                        if (_onCompare(oldValue, value)) {
+                            return true;
+                        }
+                        _value = value;
+                        onChange = _onChange;
                     }
-                    _value = value;
+
+                    if (onChange != nullptr) {
+                        onChange(oldValue, value);
+                    }
+
                     return true;
                 }
 
