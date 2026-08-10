@@ -180,9 +180,15 @@ namespace ESPressio {
 
                     OnInitialization();
 
-                    if (GetThreadState() == ThreadState::Terminating) {
+                    const ThreadState stateAfterInitialization = GetThreadState();
+
+                    if (stateAfterInitialization == ThreadState::Terminating) {
                         _deleteTask();
                         SetThreadState(ThreadState::Terminated);
+                        return;
+                    }
+
+                    if (stateAfterInitialization == ThreadState::Terminated) {
                         return;
                     }
 
