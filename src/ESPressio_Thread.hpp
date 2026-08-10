@@ -281,11 +281,25 @@ namespace ESPressio {
                         return;
                     }
 
-                    SetThreadState(
-                        GetStartOnInitialize()
-                            ? ThreadState::Running
-                            : ThreadState::Initialized
-                    );
+                    SetThreadState(ThreadState::Initialized);
+
+                    const ThreadState stateAfterInitialized = GetThreadState();
+
+                    if (stateAfterInitialized == ThreadState::Terminating) {
+                        SetThreadState(ThreadState::Terminated);
+                        _deleteTask();
+                        return;
+                    }
+
+                    if (stateAfterInitialized == ThreadState::Terminated) {
+                        _deleteTask();
+                        return;
+                    }
+
+                    if (stateAfterInitialized == ThreadState::Initialized &&
+                        GetStartOnInitialize()) {
+                        SetThreadState(ThreadState::Running);
+                    }
 
                     xTaskNotifyGive(createdTask);
                 }
