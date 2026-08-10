@@ -60,6 +60,42 @@ namespace ESPressio {
                 TOnThreadStateChangeEvent _onStateChange = nullptr;
 
             // Methods
+                bool _isValidThreadStateTransition(
+                    ThreadState oldState,
+                    ThreadState newState
+                ) {
+                    if (oldState == newState) {
+                        return false;
+                    }
+
+                    if (newState == ThreadState::Destroyed) {
+                        return oldState != ThreadState::Destroyed;
+                    }
+
+                    switch (oldState) {
+                        case ThreadState::Uninitialized:
+                            return newState == ThreadState::Initialized ||
+                                   newState == ThreadState::Terminating;
+                        case ThreadState::Initialized:
+                            return newState == ThreadState::Running ||
+                                   newState == ThreadState::Terminating;
+                        case ThreadState::Running:
+                            return newState == ThreadState::Paused ||
+                                   newState == ThreadState::Terminating;
+                        case ThreadState::Paused:
+                            return newState == ThreadState::Running ||
+                                   newState == ThreadState::Terminating;
+                        case ThreadState::Terminating:
+                            return newState == ThreadState::Terminated;
+                        case ThreadState::Terminated:
+                            return newState == ThreadState::Uninitialized;
+                        case ThreadState::Destroyed:
+                            return false;
+                    }
+
+                    return false;
+                }
+
                 void _deleteTask() {
                     TaskHandle_t handle =
                         _taskHandle.exchange(nullptr, std::memory_order_acq_rel);
@@ -134,7 +170,7 @@ namespace ESPressio {
                     bool changed = false;
 
                     _threadState.WithWriteLock([&](ThreadState& currentState) {
-                        if (currentState == state) {
+                        if (!_isValidThreadStateTransition(currentState, state)) {
                             return;
                         }
 
@@ -156,7 +192,10 @@ namespace ESPressio {
 
                     _threadState.WithWriteLock([&](ThreadState& currentState) {
                         if (currentState != expectedState ||
-                            currentState == newState) {
+                            !_isValidThreadStateTransition(
+                                currentState,
+                                newState
+                            )) {
                             return;
                         }
 
@@ -224,10 +263,18 @@ namespace ESPressio {
                         return;
                     }
 
+                    const ThreadState initialState = GetThreadState();
+
                     // A replacement task must not observe Terminated and exit
                     // before Initialize() has finished publishing its handle.
-                    if (GetThreadState() == ThreadState::Terminated) {
-                        _threadState.Set(ThreadState::Uninitialized);
+                    if (initialState == ThreadState::Terminated) {
+                        if (!TrySetThreadState(
+                                ThreadState::Terminated,
+                                ThreadState::Uninitialized)) {
+                            return;
+                        }
+                    } else if (initialState != ThreadState::Uninitialized) {
+                        return;
                     }
 
                     std::string threadName =
@@ -260,7 +307,10 @@ namespace ESPressio {
                                     std::memory_order_acquire
                                 );
 
-                                instance->SetThreadState(ThreadState::Terminated);
+                                instance->TrySetThreadState(
+                                    ThreadState::Terminating,
+                                    ThreadState::Terminated
+                                );
                             }
                             vTaskDelete(nullptr);
                         },
@@ -379,14 +429,24 @@ namespace ESPressio {
                         case ThreadState::Terminated:
                             Initialize();
 
-                            if (GetThreadState() == ThreadState::Initialized) {
-                                SetThreadState(ThreadState::Running);
-                            }
+                            TrySetThreadState(
+                                ThreadState::Initialized,
+                                ThreadState::Running
+                            );
                             return;
 
                         case ThreadState::Initialized:
+                            TrySetThreadState(
+                                ThreadState::Initialized,
+                                ThreadState::Running
+                            );
+                            return;
+
                         case ThreadState::Paused:
-                            SetThreadState(ThreadState::Running);
+                            TrySetThreadState(
+                                ThreadState::Paused,
+                                ThreadState::Running
+                            );
                             return;
 
                         case ThreadState::Running:
