@@ -21,6 +21,14 @@
     #define ESPRESSIO_THREAD_TLS_INDEX 0
 #endif
 
+#if defined(configNUM_THREAD_LOCAL_STORAGE_POINTERS)
+    static_assert(
+        ESPRESSIO_THREAD_TLS_INDEX >= 0 &&
+        ESPRESSIO_THREAD_TLS_INDEX < configNUM_THREAD_LOCAL_STORAGE_POINTERS,
+        "ESPRESSIO_THREAD_TLS_INDEX is outside the configured FreeRTOS TLS range"
+    );
+#endif
+
 namespace ESPressio {
 
     namespace Threads {
@@ -47,6 +55,8 @@ namespace ESPressio {
                 ReadWriteMutex<bool> _freeOnTerminate = ReadWriteMutex<bool>(false);
                 ReadWriteMutex<bool> _startOnInitialize = ReadWriteMutex<bool>(true);
                 std::atomic<TaskHandle_t> _taskHandle{nullptr};
+                std::atomic<TaskHandle_t> _initializingTaskHandle{nullptr};
+                std::atomic<bool> _initializationInProgress{false};
                 SemaphoreHandle_t _taskExited = xSemaphoreCreateBinary();
                 mutable std::mutex _taskConfigurationMutex;
                 ReadWriteMutex<uint32_t> _stackSize = ReadWriteMutex<uint32_t>(ESPRESSIO_THREAD_DEFAULT_STACK_SIZE);
@@ -107,6 +117,8 @@ namespace ESPressio {
                         vTaskDelete(handle);
                     }
                 }
+
+                static void _requestGarbageCollection();
                 
                 void _loop() {
                     for (;;) {
@@ -253,6 +265,17 @@ namespace ESPressio {
                     // own task deletion callback.
                     const TaskHandle_t handle =
                         _taskHandle.load(std::memory_order_acquire);
+                    const TaskHandle_t currentTask =
+                        xTaskGetCurrentTaskHandle();
+
+                    // OnInitialization() must return before Initialize() can
+                    // delete the still-gated worker and signal task exit.
+                    if (_initializationInProgress.load(std::memory_order_acquire) &&
+                        _initializingTaskHandle.load(std::memory_order_acquire) ==
+                            currentTask) {
+                        Terminate();
+                        return;
+                    }
 
                     if (handle == nullptr) {
                         if (GetThreadState() != ThreadState::Terminated &&
@@ -263,7 +286,7 @@ namespace ESPressio {
                         return;
                     }
 
-                    if (handle == xTaskGetCurrentTaskHandle()) {
+                    if (handle == currentTask) {
                         Terminate();
                         return;
                     }
@@ -381,7 +404,10 @@ namespace ESPressio {
 
                             const bool terminated =
                                 instance->GetThreadState() == ThreadState::Terminated;
-
+                            const bool shouldGarbageCollect =
+                                terminated && instance->GetFreeOnTerminate();
+                            const SemaphoreHandle_t taskExited =
+                                instance->_taskExited;
                             TOnThreadEvent onTerminated =
                                 instance->GetOnTerminated();
 
@@ -389,17 +415,40 @@ namespace ESPressio {
                                 onTerminated(instance);
                             }
 
-                            if (terminated && instance->GetFreeOnTerminate()) {
-                                instance->GarbageCollect();
-                                return;
+                            // Do not dereference instance after invoking user
+                            // code: the callback may alter its ownership.
+                            if (shouldGarbageCollect) {
+                                Thread::_requestGarbageCollection();
+                            } else if (taskExited != nullptr) {
+                                xSemaphoreGive(taskExited);
                             }
-
-                            xSemaphoreGive(instance->_taskExited);
                         }
                     );
 
                     configurationLock.unlock();
 
+                    struct InitializationContextGuard {
+                        std::atomic<TaskHandle_t>& taskHandle;
+                        std::atomic<bool>& inProgress;
+
+                        ~InitializationContextGuard() {
+                            inProgress.store(false, std::memory_order_release);
+                            taskHandle.store(nullptr, std::memory_order_release);
+                        }
+                    };
+
+                    _initializingTaskHandle.store(
+                        xTaskGetCurrentTaskHandle(),
+                        std::memory_order_release
+                    );
+                    _initializationInProgress.store(
+                        true,
+                        std::memory_order_release
+                    );
+                    InitializationContextGuard initializationContext{
+                        _initializingTaskHandle,
+                        _initializationInProgress
+                    };
                     OnInitialization();
 
                     const ThreadState stateAfterInitialization = GetThreadState();

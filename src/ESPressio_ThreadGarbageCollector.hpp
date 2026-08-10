@@ -19,12 +19,21 @@ namespace ESPressio {
             protected:
                 // Constructor
                 ThreadGarbageCollector() : Thread() {
+                    if (_semaphore == nullptr) {
+                        return;
+                    }
+
                     SetStackSize(ESPRESSIO_THREAD_GARBAGE_COLLECTOR_STACK_SIZE);
                     Initialize();
                     Start();
                 }
 
                 void OnLoop() override {
+                    if (_semaphore == nullptr) {
+                        Terminate();
+                        return;
+                    }
+
                     xSemaphoreTake(_semaphore, portMAX_DELAY);
                     // Wait on the semaphore until we're told to clean up.
                     ThreadManager::GetInstance()->CleanUp();
@@ -37,7 +46,9 @@ namespace ESPressio {
                 
                 void CleanUp() override {
                     // Signal the semaphore to wake up the thread.
-                    xSemaphoreGive(_semaphore);
+                    if (_semaphore != nullptr) {
+                        xSemaphoreGive(_semaphore);
+                    }
                 }
         };
 

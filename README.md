@@ -370,11 +370,15 @@ This is source-compatible with existing derived classes: no new virtual method n
 
 Do not call `Shutdown()` from `OnLoop()` or from code executing on the Thread's own FreeRTOS task. Call `Terminate()` there instead; the worker will finish its current loop iteration and exit normally.
 
+`Shutdown()` may be called during `OnInitialization()`. In that context it requests termination without waiting, allowing `OnInitialization()` to return so initialization can delete the still-gated worker safely.
+
 Directly destroying a running derived object without first calling `Shutdown()` is unsupported. C++ destroys derived members before it invokes the base `Thread` destructor, so the base destructor cannot protect members that `OnLoop()` may still be using.
 
 Calling `Shutdown()` claims manual ownership of destruction by disabling `FreeOnTerminate`. Consequently, code that explicitly shuts down a dynamically allocated Thread remains responsible for deleting it.
 
 Termination has two callback milestones. `SetOnTerminate()` registers a callback for the moment the Thread loop enters the `Terminated` state. `SetOnTerminated()` registers a callback that runs later, from FreeRTOS task cleanup, after task execution has ended. Use `SetOnTerminated()` when cleanup depends on the worker no longer executing `OnLoop()`.
+
+An `OnTerminated` callback must not directly delete its sender. The automatic-cleanup decision is captured before the callback begins, so changing `FreeOnTerminate` inside this callback affects future lifecycles rather than the cleanup already in progress. After the callback returns, the library performs only operations captured before user code ran and does not dereference the Thread object again.
 
 ## Thread-Safe Members (Properties)
 When working with multiple Threads (*especially on multi-core hardware such as the ESP32 microcontrollers*) it is absolutely critical that we identify any and all *members* (properties) within our Objects that may be simultainously accessed (be that read or write) by multiple Threads at any given moment.

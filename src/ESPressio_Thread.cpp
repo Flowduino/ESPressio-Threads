@@ -24,8 +24,14 @@ namespace ESPressio {
             ThreadManager::GetInstance()->RemoveThread(this);
         }
 
+        void Thread::_requestGarbageCollection() {
+            ThreadGarbageCollector::GetInstance()->CleanUp();
+        }
+
         void Thread::GarbageCollect() {
-            if (GetFreeOnTerminate()) { ThreadGarbageCollector::GetInstance()->CleanUp(); } // Automatically trigger the Garbage Collector
+            if (GetFreeOnTerminate()) {
+                _requestGarbageCollection();
+            }
         }
     }
 
