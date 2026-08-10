@@ -158,6 +158,10 @@ namespace ESPressio {
                         [](void* parameter) {
                             Thread* instance = static_cast<Thread*>(parameter);
 
+                            // Do not enter the Thread lifecycle until Initialize()
+                            // has published the handle and completed setup.
+                            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
                             if (instance != nullptr) {
                                 instance->_loop();
 
@@ -210,6 +214,7 @@ namespace ESPressio {
                     }
 
                     if (stateAfterInitialization == ThreadState::Terminated) {
+                        _deleteTask();
                         return;
                     }
 
@@ -218,6 +223,8 @@ namespace ESPressio {
                             ? ThreadState::Running
                             : ThreadState::Initialized
                     );
+
+                    xTaskNotifyGive(createdTask);
                 }
 
                 void Terminate() override {
