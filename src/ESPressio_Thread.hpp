@@ -1,16 +1,11 @@
 #pragma once
 
-#ifdef ARDUINO
-    // Includes for Arduino environment
-    #include <FreeRTOS.h>
-    #include <task.h>
-#else
-    // Includes for ESP-IDF environment
-    #include "freertos/FreeRTOS.h"
-    #include "freertos/task.h"
-#endif
+// FreeRTOS includes
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #include <functional>
+#include <string>
 
 #include "ESPressio_IThread.hpp"
 #include "ESPressio_ThreadSafe.hpp"
@@ -71,11 +66,7 @@ namespace ESPressio {
                             case ThreadState::Paused:
                             case ThreadState::Initialized:
                             case ThreadState::Uninitialized:
-                                #ifdef ARDUINO
-                                    delay(1);
-                                #else
-                                    vTaskDelay(1); // Possibly pdMS_TO_TICKS(1) for FreeRTOS
-                                #endif
+                                vTaskDelay(pdMS_TO_TICKS(1));
                                 break;
                             case ThreadState::Running:
                                 OnLoop();
