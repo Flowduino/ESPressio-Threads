@@ -15,6 +15,10 @@
     #define ESPRESSIO_THREAD_DEFAULT_STACK_SIZE 4000
 #endif
 
+#ifndef ESPRESSIO_THREAD_TLS_INDEX
+    #define ESPRESSIO_THREAD_TLS_INDEX 0
+#endif
+
 namespace ESPressio {
 
     namespace Threads {
@@ -102,7 +106,6 @@ namespace ESPressio {
                     if (_onStateChange != nullptr) { _onStateChange(this, oldState, state); }
                     switch (state) {
                         case ThreadState::Terminated:
-                            GarbageCollect();
                             break;
                         case ThreadState::Terminating:
                             if (_onTerminate != nullptr) { _onTerminate(this); }
@@ -203,13 +206,28 @@ namespace ESPressio {
                         return;
                     }
 
+                    vTaskSetThreadLocalStoragePointerAndDelCallback(
+                        createdTask,
+                        ESPRESSIO_THREAD_TLS_INDEX,
+                        this,
+                        [](int, void* value) {
+                            Thread* instance = static_cast<Thread*>(value);
+
+                            if (instance != nullptr &&
+                                instance->GetThreadState() == ThreadState::Terminated &&
+                                instance->GetFreeOnTerminate()) {
+                                instance->GarbageCollect();
+                            }
+                        }
+                    );
+
                     OnInitialization();
 
                     const ThreadState stateAfterInitialization = GetThreadState();
 
                     if (stateAfterInitialization == ThreadState::Terminating) {
-                        _deleteTask();
                         SetThreadState(ThreadState::Terminated);
+                        _deleteTask();
                         return;
                     }
 
