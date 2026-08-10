@@ -3,12 +3,32 @@
 // define CORE_THREADING_DEBUG in your project to enable debugging!
 
 // System Includes
-#define max max // Fixes bugs with mutex and std::max
-#define min min // Fixes bugs with mutex and std::min
+#if defined(max)
+    #pragma push_macro("max")
+    #undef max
+    #define ESPRESSIO_THREADS_RESTORE_MAX_MACRO
+#endif
+
+#if defined(min)
+    #pragma push_macro("min")
+    #undef min
+    #define ESPRESSIO_THREADS_RESTORE_MIN_MACRO
+#endif
+
 #include <functional>
 #include <mutex>
 #include <shared_mutex>
 #include <utility>
+
+#if defined(ESPRESSIO_THREADS_RESTORE_MIN_MACRO)
+    #pragma pop_macro("min")
+    #undef ESPRESSIO_THREADS_RESTORE_MIN_MACRO
+#endif
+
+#if defined(ESPRESSIO_THREADS_RESTORE_MAX_MACRO)
+    #pragma pop_macro("max")
+    #undef ESPRESSIO_THREADS_RESTORE_MAX_MACRO
+#endif
 
 // Library Includes
 
