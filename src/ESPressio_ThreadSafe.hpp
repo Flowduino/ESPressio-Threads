@@ -60,6 +60,16 @@ namespace ESPressio {
                 }
 
                 virtual void ReleaseLock() = 0;
+
+                /// Releases a lock acquired by IsLockedRead().
+                virtual void ReleaseReadLock() {
+                    ReleaseLock();
+                }
+
+                /// Releases a lock acquired by IsLockedWrite().
+                virtual void ReleaseWriteLock() {
+                    ReleaseLock();
+                }
         };
 
         /*
@@ -182,6 +192,14 @@ namespace ESPressio {
                 /// Releases the Lock on the `Mutex` object.
                 /// You should only call this if you have previously called `IsLocked` and it returned `false`, or if you need to release the lock prior to the end of scope.
                 void ReleaseLock() override {
+                    ReleaseReadLock();
+                }
+
+                void ReleaseReadLock() override {
+                    _mutex.unlock();
+                }
+
+                void ReleaseWriteLock() override {
                     _mutex.unlock();
                 }
         };
@@ -308,6 +326,10 @@ namespace ESPressio {
                 /// Releases the Lock on the `ReadWriteMutex` object.
                 /// You should only call this if you have previously called `IsLocked` and it returned `false`, or if you need to release the lock prior to the end of scope.
                 void ReleaseLock() override {
+                    ReleaseReadLock();
+                }
+
+                void ReleaseReadLock() override {
                     _mutex.unlock_shared();
                 }
 
@@ -332,7 +354,7 @@ namespace ESPressio {
 
                 /// Releases the Lock on the `ReadWriteMutex` object for writing.
                 /// You should only call this if you have previously called `IsLocked` and it returned `false`, or if you need to release the lock prior to the end of scope.
-                void ReleaseWriteLock() {
+                void ReleaseWriteLock() override {
                     _mutex.unlock();
                 }
         };
