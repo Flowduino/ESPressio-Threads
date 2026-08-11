@@ -69,7 +69,9 @@ namespace ESPressio {
                 return false;
             }
 
-            return xQueueSend(_queue, &thread, portMAX_DELAY) == pdTRUE;
+            // Dispatch is called from FreeRTOS task-deletion cleanup, where
+            // waiting for queue capacity is unsafe.
+            return xQueueSend(_queue, &thread, 0) == pdTRUE;
         }
 
     }

@@ -448,9 +448,13 @@ namespace ESPressio {
                                     std::memory_order_release
                                 );
 
-                                if (instance->GetFreeOnTerminate()) {
-                                    Thread::_requestGarbageCollection();
-                                } else if (instance->_taskExited != nullptr) {
+                                // Task-deletion callbacks must not block or
+                                // lazily create/signal other worker tasks. If
+                                // the dispatcher queue is unexpectedly full,
+                                // release Shutdown() and leave this terminated
+                                // object registered for a later explicit
+                                // ThreadManager::CleanUp().
+                                if (instance->_taskExited != nullptr) {
                                     xSemaphoreGive(instance->_taskExited);
                                 }
                             }

@@ -392,6 +392,8 @@ Calling `Shutdown()` claims manual ownership of destruction by disabling `FreeOn
 
 Termination has two callback milestones. `SetOnTerminate()` registers a callback for the moment the Thread loop enters the `Terminated` state. `SetOnTerminated()` runs later on the dedicated termination-dispatcher task, after FreeRTOS task execution has ended. Use `SetOnTerminated()` when cleanup depends on the worker no longer executing `OnLoop()`. The dispatcher keeps TLS cleanup short and permits ordinary callback work without blocking the FreeRTOS cleanup context.
 
+Enqueueing termination work from FreeRTOS task-deletion cleanup is non-blocking. The default dispatcher queue can hold one pending event for every supported Thread. If a smaller configured queue is exhausted, `OnTerminated` is not invoked for that termination, shutdown waiters are still released, and a `FreeOnTerminate` object remains registered until a later explicit `ThreadManager::CleanUp()` call.
+
 An `OnTerminated` callback must not directly delete its sender. The automatic-cleanup decision is captured before the callback begins, so changing `FreeOnTerminate` inside this callback affects future lifecycles rather than the cleanup already in progress. After the callback returns, the library performs only operations captured before user code ran and does not dereference the Thread object again.
 
 ## Thread-Safe Members (Properties)
