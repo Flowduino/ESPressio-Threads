@@ -481,39 +481,68 @@ namespace ESPressio {
                         _initializingTaskHandle,
                         _initializationInProgress
                     };
-                    OnInitialization();
+                    try {
+                        OnInitialization();
 
-                    const ThreadState stateAfterInitialization = GetThreadState();
+                        const ThreadState stateAfterInitialization =
+                            GetThreadState();
 
-                    if (stateAfterInitialization == ThreadState::Terminating) {
-                        SetThreadState(ThreadState::Terminated);
+                        if (stateAfterInitialization ==
+                            ThreadState::Terminating) {
+                            SetThreadState(ThreadState::Terminated);
+                            _deleteTask();
+                            return ThreadInitializationStatus::
+                                TerminatedDuringInitialization;
+                        }
+
+                        if (stateAfterInitialization ==
+                            ThreadState::Terminated) {
+                            _deleteTask();
+                            return ThreadInitializationStatus::
+                                TerminatedDuringInitialization;
+                        }
+
+                        SetThreadState(ThreadState::Initialized);
+
+                        const ThreadState stateAfterInitialized =
+                            GetThreadState();
+
+                        if (stateAfterInitialized ==
+                            ThreadState::Terminating) {
+                            SetThreadState(ThreadState::Terminated);
+                            _deleteTask();
+                            return ThreadInitializationStatus::
+                                TerminatedDuringInitialization;
+                        }
+
+                        if (stateAfterInitialized ==
+                            ThreadState::Terminated) {
+                            _deleteTask();
+                            return ThreadInitializationStatus::
+                                TerminatedDuringInitialization;
+                        }
+
+                        if (stateAfterInitialized == ThreadState::Initialized &&
+                            GetStartOnInitialize()) {
+                            SetThreadState(ThreadState::Running);
+                        }
+                    } catch (...) {
+                        // The worker is still blocked at its startup gate, so
+                        // it can be deleted without racing OnLoop(). State
+                        // callbacks may also throw; each transition changes
+                        // state before dispatching its callbacks, therefore
+                        // continuing cleanup remains safe.
+                        try {
+                            Terminate();
+                        } catch (...) {}
+
+                        try {
+                            SetThreadState(ThreadState::Terminated);
+                        } catch (...) {}
+
                         _deleteTask();
-                        return ThreadInitializationStatus::TerminatedDuringInitialization;
-                    }
-
-                    if (stateAfterInitialization == ThreadState::Terminated) {
-                        _deleteTask();
-                        return ThreadInitializationStatus::TerminatedDuringInitialization;
-                    }
-
-                    SetThreadState(ThreadState::Initialized);
-
-                    const ThreadState stateAfterInitialized = GetThreadState();
-
-                    if (stateAfterInitialized == ThreadState::Terminating) {
-                        SetThreadState(ThreadState::Terminated);
-                        _deleteTask();
-                        return ThreadInitializationStatus::TerminatedDuringInitialization;
-                    }
-
-                    if (stateAfterInitialized == ThreadState::Terminated) {
-                        _deleteTask();
-                        return ThreadInitializationStatus::TerminatedDuringInitialization;
-                    }
-
-                    if (stateAfterInitialized == ThreadState::Initialized &&
-                        GetStartOnInitialize()) {
-                        SetThreadState(ThreadState::Running);
+                        return ThreadInitializationStatus::
+                            InitializationException;
                     }
 
                     xTaskNotifyGive(createdTask);

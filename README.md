@@ -241,7 +241,9 @@ The explicit maximum number of *ESPressio* `Thread`s supported by the library is
 
 Attempting to construct another registered Thread after all 256 IDs are occupied throws `ThreadLimitExceededException`. This library configuration therefore requires C++ exception support to be enabled.
 
-`Initialize()` returns `ThreadInitializationStatus`. `Success` means a task was created and initialization completed. The remaining values describe why initialization did not start or complete: `AlreadyInitialized`, `InvalidState`, `ExitSignalUnavailable`, `TerminationDispatcherUnavailable`, `TerminationDispatchPending`, `TaskCreationFailed`, `ConcurrentInitializationLost`, or `TerminatedDuringInitialization`.
+`Initialize()` returns `ThreadInitializationStatus`. `Success` means a task was created and initialization completed. The remaining values describe why initialization did not start or complete: `AlreadyInitialized`, `InvalidState`, `ExitSignalUnavailable`, `TerminationDispatcherUnavailable`, `TerminationDispatchPending`, `TaskCreationFailed`, `ConcurrentInitializationLost`, `TerminatedDuringInitialization`, or `InitializationException`.
+
+`InitializationException` means that `OnInitialization()` or an initialization lifecycle callback threw an exception. The library catches the exception, terminates and deletes the still-gated FreeRTOS task, and leaves the Thread in the `Terminated` state so that no orphaned task remains.
 
 ```cpp
 ThreadInitializationStatus status = thread1.Initialize();

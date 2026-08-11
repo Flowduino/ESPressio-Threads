@@ -28,7 +28,8 @@ namespace ESPressio {
             TerminationDispatchPending,
             TaskCreationFailed,
             ConcurrentInitializationLost,
-            TerminatedDuringInitialization
+            TerminatedDuringInitialization,
+            InitializationException
         };
 
         class ThreadLimitExceededException : public std::runtime_error {
