@@ -26,7 +26,14 @@ namespace ESPressio {
         Thread::~Thread() {
             SetThreadState(ThreadState::Destroyed);
             TOnThreadEvent onDestroy = GetOnDestroy();
-            if (onDestroy != nullptr) { onDestroy(this); }
+            if (onDestroy != nullptr) {
+                try {
+                    onDestroy(this);
+                } catch (...) {
+                    // Destructors must not allow user callbacks to terminate
+                    // the program or interrupt resource cleanup.
+                }
+            }
             _deleteTask();
             if (_taskExited != nullptr) {
                 vSemaphoreDelete(_taskExited);

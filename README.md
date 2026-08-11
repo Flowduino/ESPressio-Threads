@@ -257,6 +257,8 @@ thread1.SetOnInitializationFailed(
 
 The callback runs synchronously on the caller of `Initialize()`, after internal initialization locks have been released, for every status other than `Success` (including `AlreadyInitialized`). Exceptions thrown by this callback are contained and do not replace the status returned by `Initialize()`.
 
+Exceptions thrown by lifecycle callbacks are contained by the library. `OnStateChange`, `OnInitialize`, `OnStart`, `OnPause`, `OnTerminate`, `OnTerminated`, `OnInitializationFailed`, and `OnDestroy` cannot escape the public lifecycle operation that invoked them. `OnStateChange` and the state-specific callback are isolated from one another, so an exception in either handler does not suppress the other. During `Initialize()`, a lifecycle callback exception produces `InitializationException` after safe task cleanup; during other lifecycle operations it is contained without being rethrown. Applications should still handle and report errors inside callbacks.
+
 ```cpp
 ThreadInitializationStatus status = thread1.Initialize();
 

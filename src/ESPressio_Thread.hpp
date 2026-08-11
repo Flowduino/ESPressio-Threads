@@ -179,6 +179,7 @@ namespace ESPressio {
                 ) {
                     TOnThreadStateChangeEvent onStateChange;
                     TOnThreadEvent onThreadEvent;
+                    bool callbackFailed = false;
 
                     {
                         std::lock_guard<std::mutex> lock(_callbackMutex);
@@ -205,11 +206,34 @@ namespace ESPressio {
                     }
 
                     if (onStateChange != nullptr) {
-                        onStateChange(this, oldState, newState);
+                        try {
+                            onStateChange(this, oldState, newState);
+                        } catch (...) {
+                            // Lifecycle callbacks must not interrupt a state
+                            // transition or prevent subsequent callbacks.
+                            callbackFailed = true;
+                        }
                     }
 
                     if (onThreadEvent != nullptr) {
-                        onThreadEvent(this);
+                        try {
+                            onThreadEvent(this);
+                        } catch (...) {
+                            // Each callback is isolated so one handler cannot
+                            // suppress the remainder of the lifecycle.
+                            callbackFailed = true;
+                        }
+                    }
+
+                    if (callbackFailed && _initializationInProgress.load(
+                        std::memory_order_acquire
+                    )) {
+                        // Initialize() converts this internal signal into
+                        // InitializationException after cleaning up its gated
+                        // worker task.
+                        throw std::runtime_error(
+                            "Thread initialization lifecycle callback failed"
+                        );
                     }
                 }
             protected:
