@@ -5,6 +5,7 @@
 #include <exception>
 #include <functional>
 #include <stdexcept>
+#include <string>
 #include <utility>
 
 namespace ESPressio {
@@ -39,12 +40,37 @@ namespace ESPressio {
             public:
                 explicit ThreadException(const char* message)
                     : std::runtime_error(message) {}
+
+                explicit ThreadException(const std::string& message)
+                    : std::runtime_error(message) {}
         };
 
         class ThreadRegistrationException : public ThreadException {
             public:
                 explicit ThreadRegistrationException(const char* message)
                     : ThreadException(message) {}
+
+                explicit ThreadRegistrationException(
+                    const std::string& message
+                ) : ThreadException(message) {}
+        };
+
+        class ThreadDuplicateIDException :
+            public ThreadRegistrationException {
+            private:
+                uint8_t _threadID;
+
+            public:
+                explicit ThreadDuplicateIDException(uint8_t threadID)
+                    : ThreadRegistrationException(
+                        "Thread ID " + std::to_string(threadID) +
+                        " is already registered"
+                    ),
+                    _threadID(threadID) {}
+
+                uint8_t GetThreadID() const noexcept {
+                    return _threadID;
+                }
         };
 
         class ThreadLimitExceededException :

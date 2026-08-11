@@ -194,6 +194,18 @@ namespace ESPressio {
                             }
 
                             recordID = *assignedThreadID;
+                        } else {
+                            const bool idInUse = std::any_of(
+                                threads.begin(),
+                                threads.end(),
+                                [recordID](const ThreadRecord& record) {
+                                    return record.id == recordID;
+                                }
+                            );
+
+                            if (idInUse) {
+                                throw ThreadDuplicateIDException(recordID);
+                            }
                         }
 
                         threads.push_back({recordID, thread});
