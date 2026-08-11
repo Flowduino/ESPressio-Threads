@@ -50,6 +50,10 @@ namespace ESPressio {
 
                 typedef std::function<void(IThread*)> ThreadCallback;
                 typedef std::function<void(IThread*, ThreadState, ThreadState)> ThreadStateChangeCallback;
+                typedef std::function<void(
+                    IThread*,
+                    ThreadInitializationStatus
+                )> ThreadInitializationFailedCallback;
 
             // Destructor
 
@@ -125,6 +129,11 @@ namespace ESPressio {
                 /// The default implementation preserves compatibility with existing IThread implementations.
                 virtual ThreadCallback GetOnTerminated() { return nullptr; }
 
+                /// Returns the callback invoked when Initialize() returns an
+                /// outcome other than Success.
+                virtual ThreadInitializationFailedCallback
+                GetOnInitializationFailed() { return nullptr; }
+
                 /// `GetOnStateChange` returns the callback to be invoked when the Thread's state changes.
                 virtual ThreadStateChangeCallback GetOnStateChange() = 0;
 
@@ -170,6 +179,12 @@ namespace ESPressio {
                 /// `SetOnTerminated` sets the callback invoked after the underlying task has completed termination.
                 /// The default implementation preserves compatibility with existing IThread implementations.
                 virtual void SetOnTerminated(ThreadCallback) {}
+
+                /// Sets the callback invoked when Initialize() returns an
+                /// outcome other than Success.
+                virtual void SetOnInitializationFailed(
+                    ThreadInitializationFailedCallback
+                ) {}
 
                 /// `SetOnStateChange` sets the callback to be invoked when the Thread's state changes.
                 /// The callback function takes `IThread*` and ideally named `sender`, `ThreadState` for the previous state and `ThreadState` for the new state.

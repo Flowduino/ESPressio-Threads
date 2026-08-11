@@ -49,6 +49,10 @@ namespace ESPressio {
                 using TOnThreadEvent = std::function<void(IThread*)>;
                 /// `TOnThreadStateChangeEvent` is a function type that can be used to handle Thread state change events.
                 using TOnThreadStateChangeEvent = std::function<void(IThread*, ThreadState, ThreadState)>;
+                using TOnThreadInitializationFailedEvent = std::function<void(
+                    IThread*,
+                    ThreadInitializationStatus
+                )>;
 
             // Members
                 uint8_t _threadID; // This is idempotent so doesn't need a `Mutex` wrapper.
@@ -72,6 +76,8 @@ namespace ESPressio {
                 TOnThreadEvent _onPause = nullptr;
                 TOnThreadEvent _onTerminate = nullptr;
                 TOnThreadEvent _onTerminated = nullptr;
+                TOnThreadInitializationFailedEvent _onInitializationFailed =
+                    nullptr;
                 TOnThreadStateChangeEvent _onStateChange = nullptr;
 
             // Methods
@@ -305,7 +311,8 @@ namespace ESPressio {
                     xSemaphoreTake(_taskExited, portMAX_DELAY);
                 }
 
-                ThreadInitializationStatus Initialize() override {
+            private:
+                ThreadInitializationStatus _initialize() {
                     if (_taskExited == nullptr) {
                         return ThreadInitializationStatus::ExitSignalUnavailable;
                     }
@@ -553,6 +560,28 @@ namespace ESPressio {
                     return ThreadInitializationStatus::Success;
                 }
 
+            public:
+                ThreadInitializationStatus Initialize() override {
+                    const ThreadInitializationStatus status = _initialize();
+
+                    if (status != ThreadInitializationStatus::Success) {
+                        TOnThreadInitializationFailedEvent
+                            onInitializationFailed =
+                                GetOnInitializationFailed();
+
+                        if (onInitializationFailed != nullptr) {
+                            try {
+                                onInitializationFailed(this, status);
+                            } catch (...) {
+                                // A diagnostic callback must not replace the
+                                // initialization outcome it is reporting.
+                            }
+                        }
+                    }
+
+                    return status;
+                }
+
                 void Terminate() override {
                     switch (GetThreadState()) {
                         case ThreadState::Uninitialized:
@@ -676,6 +705,12 @@ namespace ESPressio {
                     return _onTerminated;
                 }
 
+                TOnThreadInitializationFailedEvent
+                GetOnInitializationFailed() override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
+                    return _onInitializationFailed;
+                }
+
                 TOnThreadStateChangeEvent GetOnStateChange() override {
                     std::lock_guard<std::mutex> lock(_callbackMutex);
                     return _onStateChange;
@@ -743,6 +778,13 @@ namespace ESPressio {
                 void SetOnTerminated(TOnThreadEvent value) override {
                     std::lock_guard<std::mutex> lock(_callbackMutex);
                     _onTerminated = value;
+                }
+
+                void SetOnInitializationFailed(
+                    TOnThreadInitializationFailedEvent value
+                ) override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
+                    _onInitializationFailed = value;
                 }
 
                 void SetOnStateChange(TOnThreadStateChangeEvent value) override {

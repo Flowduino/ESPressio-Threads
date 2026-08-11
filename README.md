@@ -245,6 +245,18 @@ Attempting to construct another registered Thread after all 256 IDs are occupied
 
 `InitializationException` means that `OnInitialization()` or an initialization lifecycle callback threw an exception. The library catches the exception, terminates and deletes the still-gated FreeRTOS task, and leaves the Thread in the `Terminated` state so that no orphaned task remains.
 
+Each Thread can optionally handle its own unsuccessful initialization outcomes by registering `SetOnInitializationFailed()` before calling `Initialize()`. The callback receives the Thread and the exact `ThreadInitializationStatus`:
+
+```cpp
+thread1.SetOnInitializationFailed(
+    [](IThread* sender, ThreadInitializationStatus status) {
+        // Handle or report this Thread's initialization outcome.
+    }
+);
+```
+
+The callback runs synchronously on the caller of `Initialize()`, after internal initialization locks have been released, for every status other than `Success` (including `AlreadyInitialized`). Exceptions thrown by this callback are contained and do not replace the status returned by `Initialize()`.
+
 ```cpp
 ThreadInitializationStatus status = thread1.Initialize();
 
@@ -252,6 +264,19 @@ if (status != ThreadInitializationStatus::Success) {
     // Handle or report the initialization outcome.
 }
 ```
+
+`ThreadManager::Initialize()` retains its original `void` interface and ignores individual outcomes. Use `InitializeWithResults()` when the application needs to inspect every registered Thread's result:
+
+```cpp
+for (const ThreadInitializationResult& result :
+     ThreadManager::GetInstance()->InitializeWithResults()) {
+    if (result.status != ThreadInitializationStatus::Success) {
+        // Report result.threadID and result.status.
+    }
+}
+```
+
+The returned collection contains the Thread ID and initialization status in manager iteration order. It intentionally contains no Thread pointers whose lifetime could end after manager initialization. If a custom `IThread` implementation unexpectedly throws from `Initialize()`, its result is reported as `InitializationException` and the manager continues initializing the remaining Threads.
 
 ### The Thread Manager
 In the previous example, you'll see that we manually called `Initialize()` on each instance of `MyFirstThread`.

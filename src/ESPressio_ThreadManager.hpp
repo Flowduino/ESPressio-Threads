@@ -18,6 +18,11 @@ namespace ESPressio {
 
     namespace Threads {
 
+        struct ThreadInitializationResult {
+            uint8_t threadID;
+            ThreadInitializationStatus status;
+        };
+
         /*
             `ThreadManager` is a Singleton class that manages all instances implementing `IThread` in the system.
             Call `ThreadManager::GetInstance()` to obtain the a Pointer to the Singleton Instance.
@@ -276,18 +281,41 @@ namespace ESPressio {
                     }
                 }
 
-                /// Initializes all Threads in the `ThreadManager`.
-                void Initialize() {
+                /// Initializes all Threads and returns each initialization
+                /// outcome in manager iteration order.
+                std::vector<ThreadInitializationResult>
+                InitializeWithResults() {
                     IterationGuard iteration(*this);
                     std::vector<IThread*> snapshot;
+                    std::vector<ThreadInitializationResult> results;
 
                     _threads.WithSharedReadLock([&snapshot](const std::vector<IThread*>& threads) {
                         snapshot = threads;
                     });
 
+                    results.reserve(snapshot.size());
+
                     for (auto thread : snapshot) {
-                        thread->Initialize();
+                        ThreadInitializationStatus status =
+                            ThreadInitializationStatus::InitializationException;
+
+                        try {
+                            status = thread->Initialize();
+                        } catch (...) {
+                            // Custom IThread implementations are not required
+                            // to provide Thread's internal exception handling.
+                        }
+
+                        results.push_back({thread->GetThreadID(), status});
                     }
+
+                    return results;
+                }
+
+                /// Initializes all Threads while preserving the original API.
+                /// Use InitializeWithResults() when outcomes are required.
+                void Initialize() {
+                    static_cast<void>(InitializeWithResults());
                 }
 
                 std::size_t GetThreadCount() {
