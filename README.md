@@ -241,6 +241,8 @@ The explicit maximum number of *ESPressio* `Thread`s supported by the library is
 
 Attempting to construct another registered Thread after all 256 IDs are occupied throws `ThreadLimitExceededException`. This library configuration therefore requires C++ exception support to be enabled.
 
+Library exceptions use a common type hierarchy. `ThreadException` is the root type, `ThreadRegistrationException` represents registration failures, and `ThreadLimitExceededException` derives from `ThreadRegistrationException`. `ThreadExecutionException` also derives from `ThreadException` and reports an exception escaping `OnLoop()`.
+
 `Initialize()` returns `ThreadInitializationStatus`. `Success` means a task was created and initialization completed. The remaining values describe why initialization did not start or complete: `AlreadyInitialized`, `InvalidState`, `ExitSignalUnavailable`, `TerminationDispatcherUnavailable`, `TerminationDispatchPending`, `TaskCreationFailed`, `ConcurrentInitializationLost`, `TerminatedDuringInitialization`, or `InitializationException`.
 
 `InitializationException` means that `OnInitialization()` or an initialization lifecycle callback threw an exception. The library catches the exception, terminates and deletes the still-gated FreeRTOS task, and leaves the Thread in the `Terminated` state so that no orphaned task remains.
@@ -284,6 +286,8 @@ for (const ThreadInitializationResult& result :
 
 The returned collection contains the Thread ID and initialization status in manager iteration order. It intentionally contains no Thread pointers whose lifetime could end after manager initialization. If a custom `IThread` implementation unexpectedly throws from `Initialize()`, its result is reported as `InitializationException` and the manager continues initializing the remaining Threads.
 
+`IThread` and its derived objects are intentionally non-copyable and non-movable. Always pass them by reference or pointer. Two C++ objects must never represent or manage the same underlying FreeRTOS task, task handle, manager registration, synchronization state, or cleanup ownership. Prefer `IThread&` when a value is required to exist and a suitably owned `IThread*` or smart pointer when optional or transferred ownership is required.
+
 ### The Thread Manager
 In the previous example, you'll see that we manually called `Initialize()` on each instance of `MyFirstThread`.
 
@@ -312,6 +316,8 @@ void setup() {
 Now, all three of our `MyFirstThread` instances will start exactly as they did before, but we didn't have to explicitly `Initialize()` each of them separately.
 
 `ThreadManager::ForEachThread()` and `ThreadManager::Initialize()` invoke Thread code without holding the manager's thread-list lock, so callbacks may safely re-enter the manager. The manager pins these operations while they run and defers automatic garbage-collection deletion until the final active iteration completes.
+
+The manager stores an immutable registration record containing the assigned ID and non-owning Thread pointer. Lookups and initialization results use that stored ID rather than invoking `GetThreadID()` while locked. Cleanup is performed in two phases: state and cleanup-claim virtual methods run without the thread-list lock, then the manager reacquires the lock and removes only records whose ID and pointer still exactly match. Custom `IThread` implementations may therefore re-enter `ThreadManager` from these virtual methods without deadlocking the list lock.
 
 The pin protects against deletion performed by `ThreadManager::CleanUp()`. Application code must not directly delete a Thread concurrently with manager iteration; unmanaged concurrent destruction remains unsupported because the manager stores non-owning pointers in order to support both stack-allocated and dynamically allocated Threads.
 
@@ -427,6 +433,8 @@ Manual and automatic cleanup now use an atomic ownership claim. If `Shutdown()` 
 
 Termination has two callback milestones. `SetOnTerminate()` registers a callback for the moment the Thread loop enters the `Terminated` state. `SetOnTerminated()` runs later on the dedicated termination-dispatcher task, after FreeRTOS task execution has ended. Use `SetOnTerminated()` when cleanup depends on the worker no longer executing `OnLoop()`. The dispatcher keeps TLS cleanup short and permits ordinary callback work without blocking the FreeRTOS cleanup context.
 
+The termination dispatcher is initialized once, when first required. If its queue or task cannot be created, it remains unavailable for the lifetime of the application and `Initialize()` reports `TerminationDispatcherUnavailable`. Unlike the garbage collector, the dispatcher does not retry initialization; applications should treat this status as a startup resource/configuration failure.
+
 Enqueueing termination work from FreeRTOS task-deletion cleanup is non-blocking. The default dispatcher queue can hold one pending event for every supported Thread. If a smaller configured queue is exhausted, `OnTerminated` is not invoked for that termination, shutdown waiters are still released, and a `FreeOnTerminate` object remains registered until a later explicit `ThreadManager::CleanUp()` call.
 
 An `OnTerminated` callback must not directly delete its sender. It may change `FreeOnTerminate`; the dispatcher evaluates that setting after the callback and manager cleanup must subsequently win the atomic automatic-cleanup claim before deletion can occur.
@@ -435,7 +443,29 @@ Automatic garbage collection runs on a private infrastructure task rather than a
 
 If garbage-collector task creation fails because resources are temporarily unavailable, later cleanup requests retry initialization. If retry still fails, cleanup runs synchronously on the requesting ordinary task so `FreeOnTerminate` objects are not leaked permanently. `ThreadGarbageCollector::IsAvailable()` reports whether its background task is currently available.
 
-Exceptions escaping `OnLoop()` are contained at the FreeRTOS task boundary and converted into ordinary Thread termination. This prevents user code from unwinding through the task entry point or invoking `std::terminate`; applications should catch and report exceptions inside `OnLoop()` when failure details are required.
+Exceptions escaping `OnLoop()` are contained at the FreeRTOS task boundary and converted into ordinary Thread termination. Register `SetOnExecutionFailed()` before starting the Thread to inspect the failure. The callback receives a `std::exception_ptr` containing `ThreadExecutionException`, which can be caught through the exception hierarchy; `RethrowCause()` exposes the original application exception:
+
+```cpp
+thread1.SetOnExecutionFailed(
+    [](IThread*, std::exception_ptr failure) {
+        try {
+            std::rethrow_exception(failure);
+        } catch (const ThreadExecutionException& exception) {
+            try {
+                exception.RethrowCause();
+            } catch (const std::exception& cause) {
+                // Report cause.what().
+            } catch (...) {
+                // Report a non-standard application exception.
+            }
+        } catch (const ThreadException& exception) {
+            // Handle any other ESPressio Threads exception.
+        }
+    }
+);
+```
+
+Exceptions thrown by the failure callback itself are contained. The callback runs on the failing worker task immediately after `OnLoop()` exits and before the Thread enters its normal termination sequence.
 
 ## Thread-Safe Members (Properties)
 When working with multiple Threads (*especially on multi-core hardware such as the ESP32 microcontrollers*) it is absolutely critical that we identify any and all *members* (properties) within our Objects that may be simultainously accessed (be that read or write) by multiple Threads at any given moment.

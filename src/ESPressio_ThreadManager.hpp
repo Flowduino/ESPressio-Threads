@@ -30,15 +30,26 @@ namespace ESPressio {
         */
         class ThreadManager {
             private:
+                struct ThreadRecord {
+                    uint8_t id;
+                    IThread* thread;
+
+                    bool operator==(const ThreadRecord& other) const {
+                        return id == other.id && thread == other.thread;
+                    }
+                };
+
                 // Members
-                ReadWriteMutex<std::vector<IThread*>> _threads;
+                ReadWriteMutex<std::vector<ThreadRecord>> _threads;
                 ReadWriteMutex<int> _nextCoreID = ReadWriteMutex<int>(0);
-                std::mutex _iterationMutex;
+                std::recursive_mutex _iterationMutex;
                 std::size_t _activeIterations = 0;
                 bool _cleanupPending = false;
 
                 void _beginIteration() {
-                    std::lock_guard<std::mutex> lock(_iterationMutex);
+                    std::lock_guard<std::recursive_mutex> lock(
+                        _iterationMutex
+                    );
                     ++_activeIterations;
                 }
 
@@ -46,7 +57,9 @@ namespace ESPressio {
                     bool runDeferredCleanup = false;
 
                     {
-                        std::lock_guard<std::mutex> lock(_iterationMutex);
+                        std::lock_guard<std::recursive_mutex> lock(
+                            _iterationMutex
+                        );
                         if (_activeIterations > 0) {
                             --_activeIterations;
                         }
@@ -91,7 +104,7 @@ namespace ESPressio {
                 }
                 
             protected:
-                ThreadManager() : _threads(std::vector<IThread*>()) {
+                ThreadManager() : _threads(std::vector<ThreadRecord>()) {
 
                 }
             public:
@@ -106,7 +119,35 @@ namespace ESPressio {
                     IThread* thread,
                     uint8_t* assignedThreadID = nullptr
                 ) {
-                    _threads.WithWriteLock([&](std::vector<IThread*>& threads) {
+                    if (thread == nullptr) {
+                        return 0;
+                    }
+
+                    // Custom implementations may re-enter ThreadManager from
+                    // GetThreadID(), so evaluate it before taking the list
+                    // lock. Thread itself requests manager-assigned IDs.
+                    const uint8_t requestedThreadID =
+                        assignedThreadID == nullptr ?
+                            thread->GetThreadID() : 0;
+
+                    _threads.WithWriteLock([&](std::vector<ThreadRecord>& threads) {
+                        const auto existing = std::find_if(
+                            threads.begin(),
+                            threads.end(),
+                            [thread](const ThreadRecord& record) {
+                                return record.thread == thread;
+                            }
+                        );
+
+                        if (existing != threads.end()) {
+                            if (assignedThreadID != nullptr) {
+                                *assignedThreadID = existing->id;
+                            }
+                            return;
+                        }
+
+                        uint8_t recordID = requestedThreadID;
+
                         if (assignedThreadID != nullptr) {
                             *assignedThreadID = 0;
                             bool assigned = false;
@@ -119,8 +160,8 @@ namespace ESPressio {
                                 const bool inUse = std::any_of(
                                     threads.begin(),
                                     threads.end(),
-                                    [candidateID](IThread* existingThread) {
-                                        return existingThread->GetThreadID() == candidateID;
+                                    [candidateID](const ThreadRecord& record) {
+                                        return record.id == candidateID;
                                     }
                                 );
 
@@ -138,8 +179,8 @@ namespace ESPressio {
                                 const bool zeroInUse = std::any_of(
                                     threads.begin(),
                                     threads.end(),
-                                    [](IThread* existingThread) {
-                                        return existingThread->GetThreadID() == 0;
+                                    [](const ThreadRecord& record) {
+                                        return record.id == 0;
                                     }
                                 );
 
@@ -151,12 +192,11 @@ namespace ESPressio {
                             if (!assigned) {
                                 throw ThreadLimitExceededException();
                             }
+
+                            recordID = *assignedThreadID;
                         }
 
-                        if (std::find(threads.begin(), threads.end(), thread) ==
-                            threads.end()) {
-                            threads.push_back(thread);
-                        }
+                        threads.push_back({recordID, thread});
                     });
 
                     int useCore = 0;
@@ -170,19 +210,33 @@ namespace ESPressio {
 
                 /// Removes a Thread from the `ThreadManager` for management.
                 void RemoveThread(IThread* thread) {
-                    _threads.WithWriteLock([thread](std::vector<IThread*>& threads) {
-                        threads.erase(std::remove(threads.begin(), threads.end(), thread), threads.end());
+                    _threads.WithWriteLock([thread](std::vector<ThreadRecord>& threads) {
+                        threads.erase(
+                            std::remove_if(
+                                threads.begin(),
+                                threads.end(),
+                                [thread](const ThreadRecord& record) {
+                                    return record.thread == thread;
+                                }
+                            ),
+                            threads.end()
+                        );
                     });
                 }
 
                 /// Removes a Thread from the `ThreadManager` using its ID.
                 void RemoveThread(uint8_t threadID) {
-                    _threads.WithWriteLock([threadID](std::vector<IThread*>& threads) {
-                        for (auto thread : threads) {
-                            if (thread->GetThreadID() == threadID) {
-                                threads.erase(std::remove(threads.begin(), threads.end(), thread), threads.end());
-                                break;
+                    _threads.WithWriteLock([threadID](std::vector<ThreadRecord>& threads) {
+                        const auto matching = std::find_if(
+                            threads.begin(),
+                            threads.end(),
+                            [threadID](const ThreadRecord& record) {
+                                return record.id == threadID;
                             }
+                        );
+
+                        if (matching != threads.end()) {
+                            threads.erase(matching);
                         }
                     });
                 }
@@ -190,14 +244,14 @@ namespace ESPressio {
                 /// Iterates through all Threads in the `ThreadManager`.
                 void ForEachThread(std::function<void(IThread*)> callback) {
                     IterationGuard iteration(*this);
-                    std::vector<IThread*> snapshot;
+                    std::vector<ThreadRecord> snapshot;
 
-                    _threads.WithSharedReadLock([&snapshot](const std::vector<IThread*>& threads) {
+                    _threads.WithSharedReadLock([&snapshot](const std::vector<ThreadRecord>& threads) {
                         snapshot = threads;
                     });
 
-                    for (auto thread : snapshot) {
-                        callback(thread);
+                    for (const ThreadRecord& record : snapshot) {
+                        callback(record.thread);
                     }
                 }
 
@@ -209,24 +263,24 @@ namespace ESPressio {
                     std::function<void(IThread*)> callback
                 ) {
                     IterationGuard iteration(*this);
-                    IThread* result = nullptr;
+                    ThreadRecord result{0, nullptr};
 
                     _threads.WithSharedReadLock(
-                        [threadID, &result](const std::vector<IThread*>& threads) {
-                            for (auto thread : threads) {
-                                if (thread->GetThreadID() == threadID) {
-                                    result = thread;
+                        [threadID, &result](const std::vector<ThreadRecord>& threads) {
+                            for (const ThreadRecord& record : threads) {
+                                if (record.id == threadID) {
+                                    result = record;
                                     break;
                                 }
                             }
                         }
                     );
 
-                    if (result == nullptr) {
+                    if (result.thread == nullptr) {
                         return false;
                     }
 
-                    callback(result);
+                    callback(result.thread);
                     return true;
                 }
 
@@ -234,10 +288,10 @@ namespace ESPressio {
                 /// WithThread() when garbage collection may run concurrently.
                 IThread* GetThread(uint8_t threadID) {
                     IThread* result = nullptr;
-                    _threads.WithSharedReadLock([threadID, &result](const std::vector<IThread*>& threads) {
-                        for (auto thread : threads) {
-                            if (thread->GetThreadID() == threadID) {
-                                result = thread;
+                    _threads.WithSharedReadLock([threadID, &result](const std::vector<ThreadRecord>& threads) {
+                        for (const ThreadRecord& record : threads) {
+                            if (record.id == threadID) {
+                                result = record.thread;
                                 break;
                             }
                         }
@@ -251,28 +305,58 @@ namespace ESPressio {
                 */
                 void CleanUp() {
                     std::vector<IThread*> deleteThreads;
+                    std::vector<ThreadRecord> snapshot;
+                    std::vector<ThreadRecord> claimedRecords;
 
-                    // Keep the iteration pin while selecting and removing
-                    // victims so no new snapshot can start in between.
-                    std::unique_lock<std::mutex> iterationLock(_iterationMutex);
+                    // The recursive gate prevents another task from starting
+                    // a manager iteration while allowing a custom IThread to
+                    // re-enter ThreadManager from a virtual method below.
+                    std::unique_lock<std::recursive_mutex> iterationLock(
+                        _iterationMutex
+                    );
                     if (_activeIterations > 0) {
                         _cleanupPending = true;
                         return;
                     }
 
-                    _threads.WithWriteLock([&deleteThreads](std::vector<IThread*>& threads) {
-                        for (auto thread : threads) {
-                            if (thread->GetThreadState() ==
-                                    ThreadState::Terminated &&
-                                thread->TryClaimAutomaticCleanup()) {
-                                deleteThreads.push_back(thread);
+                    _threads.WithSharedReadLock(
+                        [&snapshot](const std::vector<ThreadRecord>& threads) {
+                            snapshot = threads;
+                        }
+                    );
+
+                    // No manager list lock is held while invoking virtual
+                    // methods supplied by Thread or custom IThread types.
+                    for (const ThreadRecord& record : snapshot) {
+                        if (record.thread != nullptr &&
+                            record.thread->GetThreadState() ==
+                                ThreadState::Terminated &&
+                            record.thread->TryClaimAutomaticCleanup()) {
+                            claimedRecords.push_back(record);
+                        }
+                    }
+
+                    _threads.WithWriteLock(
+                        [&claimedRecords, &deleteThreads](
+                            std::vector<ThreadRecord>& threads
+                        ) {
+                            for (const ThreadRecord& claimed : claimedRecords) {
+                                const auto current = std::find_if(
+                                    threads.begin(),
+                                    threads.end(),
+                                    [&claimed](const ThreadRecord& record) {
+                                        return record.id == claimed.id &&
+                                               record.thread == claimed.thread;
+                                    }
+                                );
+
+                                if (current != threads.end()) {
+                                    deleteThreads.push_back(current->thread);
+                                    threads.erase(current);
+                                }
                             }
                         }
-
-                        for (auto thread : deleteThreads) {
-                            threads.erase(std::remove(threads.begin(), threads.end(), thread), threads.end());
-                        }
-                    });
+                    );
 
                     iterationLock.unlock();
 
@@ -288,27 +372,27 @@ namespace ESPressio {
                 std::vector<ThreadInitializationResult>
                 InitializeWithResults() {
                     IterationGuard iteration(*this);
-                    std::vector<IThread*> snapshot;
+                    std::vector<ThreadRecord> snapshot;
                     std::vector<ThreadInitializationResult> results;
 
-                    _threads.WithSharedReadLock([&snapshot](const std::vector<IThread*>& threads) {
+                    _threads.WithSharedReadLock([&snapshot](const std::vector<ThreadRecord>& threads) {
                         snapshot = threads;
                     });
 
                     results.reserve(snapshot.size());
 
-                    for (auto thread : snapshot) {
+                    for (const ThreadRecord& record : snapshot) {
                         ThreadInitializationStatus status =
                             ThreadInitializationStatus::InitializationException;
 
                         try {
-                            status = thread->Initialize();
+                            status = record.thread->Initialize();
                         } catch (...) {
                             // Custom IThread implementations are not required
                             // to provide Thread's internal exception handling.
                         }
 
-                        results.push_back({thread->GetThreadID(), status});
+                        results.push_back({record.id, status});
                     }
 
                     return results;
@@ -322,7 +406,7 @@ namespace ESPressio {
 
                 std::size_t GetThreadCount() {
                     std::size_t result = 0;
-                    _threads.WithSharedReadLock([&result](const std::vector<IThread*>& threads) {
+                    _threads.WithSharedReadLock([&result](const std::vector<ThreadRecord>& threads) {
                         result = threads.size();
                     });
                     return result;

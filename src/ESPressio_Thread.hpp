@@ -59,6 +59,10 @@ namespace ESPressio {
                     IThread*,
                     ThreadInitializationStatus
                 )>;
+                using TOnThreadExecutionFailedEvent = std::function<void(
+                    IThread*,
+                    std::exception_ptr
+                )>;
 
             // Members
                 uint8_t _threadID; // This is idempotent so doesn't need a `Mutex` wrapper.
@@ -88,6 +92,7 @@ namespace ESPressio {
                 TOnThreadEvent _onTerminated = nullptr;
                 TOnThreadInitializationFailedEvent _onInitializationFailed =
                     nullptr;
+                TOnThreadExecutionFailedEvent _onExecutionFailed = nullptr;
                 TOnThreadStateChangeEvent _onStateChange = nullptr;
 
             // Methods
@@ -141,6 +146,29 @@ namespace ESPressio {
                 static bool _isCurrentTerminationDispatcherTask();
                 static bool _queueTerminationDispatch(Thread* thread);
                 void _dispatchTermination();
+
+                void _dispatchExecutionFailed(
+                    std::exception_ptr cause
+                ) noexcept {
+                    try {
+                        TOnThreadExecutionFailedEvent onExecutionFailed =
+                            GetOnExecutionFailed();
+
+                        if (onExecutionFailed != nullptr) {
+                            onExecutionFailed(
+                                this,
+                                std::make_exception_ptr(
+                                    ThreadExecutionException(
+                                        std::move(cause)
+                                    )
+                                )
+                            );
+                        }
+                    } catch (...) {
+                        // Failure reporting must not unwind through the
+                        // FreeRTOS task entry point.
+                    }
+                }
 
                 void _waitForTerminationDispatch() {
                     if (!_terminationDispatchPending.load(
@@ -453,6 +481,9 @@ namespace ESPressio {
                                     // User code must not unwind through the
                                     // FreeRTOS task entry point. Convert worker
                                     // failures into ordinary termination.
+                                    instance->_dispatchExecutionFailed(
+                                        std::current_exception()
+                                    );
                                     instance->Terminate();
                                 }
 
@@ -823,6 +854,12 @@ namespace ESPressio {
                     return _onInitializationFailed;
                 }
 
+                TOnThreadExecutionFailedEvent
+                GetOnExecutionFailed() override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
+                    return _onExecutionFailed;
+                }
+
                 TOnThreadStateChangeEvent GetOnStateChange() override {
                     std::lock_guard<std::mutex> lock(_callbackMutex);
                     return _onStateChange;
@@ -915,6 +952,13 @@ namespace ESPressio {
                 ) override {
                     std::lock_guard<std::mutex> lock(_callbackMutex);
                     _onInitializationFailed = value;
+                }
+
+                void SetOnExecutionFailed(
+                    TOnThreadExecutionFailedEvent value
+                ) override {
+                    std::lock_guard<std::mutex> lock(_callbackMutex);
+                    _onExecutionFailed = value;
                 }
 
                 void SetOnStateChange(TOnThreadStateChangeEvent value) override {

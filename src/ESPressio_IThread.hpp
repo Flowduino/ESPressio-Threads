@@ -2,8 +2,10 @@
 
 #include <atomic>
 #include <cstdint>
+#include <exception>
 #include <functional>
 #include <stdexcept>
+#include <utility>
 
 namespace ESPressio {
 
@@ -33,12 +35,46 @@ namespace ESPressio {
             InitializationException
         };
 
-        class ThreadLimitExceededException : public std::runtime_error {
+        class ThreadException : public std::runtime_error {
+            public:
+                explicit ThreadException(const char* message)
+                    : std::runtime_error(message) {}
+        };
+
+        class ThreadRegistrationException : public ThreadException {
+            public:
+                explicit ThreadRegistrationException(const char* message)
+                    : ThreadException(message) {}
+        };
+
+        class ThreadLimitExceededException :
+            public ThreadRegistrationException {
             public:
                 ThreadLimitExceededException()
-                    : std::runtime_error(
+                    : ThreadRegistrationException(
                         "ESPressio Threads supports at most 256 registered Threads"
                     ) {}
+        };
+
+        class ThreadExecutionException : public ThreadException {
+            private:
+                std::exception_ptr _cause;
+
+            public:
+                explicit ThreadExecutionException(
+                    std::exception_ptr cause
+                ) : ThreadException("Thread OnLoop execution failed"),
+                    _cause(std::move(cause)) {}
+
+                const std::exception_ptr& GetCause() const noexcept {
+                    return _cause;
+                }
+
+                void RethrowCause() const {
+                    if (_cause != nullptr) {
+                        std::rethrow_exception(_cause);
+                    }
+                }
         };
 
         /*
@@ -58,9 +94,18 @@ namespace ESPressio {
                     IThread*,
                     ThreadInitializationStatus
                 )> ThreadInitializationFailedCallback;
+                typedef std::function<void(
+                    IThread*,
+                    std::exception_ptr
+                )> ThreadExecutionFailedCallback;
 
             // Destructor
 
+                IThread() = default;
+                IThread(const IThread&) = delete;
+                IThread& operator=(const IThread&) = delete;
+                IThread(IThread&&) = delete;
+                IThread& operator=(IThread&&) = delete;
                 virtual ~IThread() {}            
 
             // Methods
@@ -157,6 +202,11 @@ namespace ESPressio {
                 virtual ThreadInitializationFailedCallback
                 GetOnInitializationFailed() { return nullptr; }
 
+                /// Returns the callback invoked when OnLoop() throws. The
+                /// exception_ptr contains a ThreadExecutionException.
+                virtual ThreadExecutionFailedCallback
+                GetOnExecutionFailed() { return nullptr; }
+
                 /// `GetOnStateChange` returns the callback to be invoked when the Thread's state changes.
                 virtual ThreadStateChangeCallback GetOnStateChange() = 0;
 
@@ -207,6 +257,11 @@ namespace ESPressio {
                 /// outcome other than Success.
                 virtual void SetOnInitializationFailed(
                     ThreadInitializationFailedCallback
+                ) {}
+
+                /// Sets the callback invoked when OnLoop() throws.
+                virtual void SetOnExecutionFailed(
+                    ThreadExecutionFailedCallback
                 ) {}
 
                 /// `SetOnStateChange` sets the callback to be invoked when the Thread's state changes.
