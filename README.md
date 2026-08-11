@@ -415,6 +415,8 @@ Directly destroying a running derived object without first calling `Shutdown()` 
 
 Calling `Shutdown()` claims manual ownership of destruction by disabling `FreeOnTerminate`. Consequently, code that explicitly shuts down a dynamically allocated Thread remains responsible for deleting it.
 
+`Shutdown()` also waits for queued termination-dispatch work after the worker task has exited. When it returns, neither the worker nor the termination dispatcher will access the object, so derived members may be destroyed safely. Calling `Shutdown()` from `OnTerminated` itself does not wait on the dispatcher task and therefore does not deadlock; the callback must still not delete its sender.
+
 Termination has two callback milestones. `SetOnTerminate()` registers a callback for the moment the Thread loop enters the `Terminated` state. `SetOnTerminated()` runs later on the dedicated termination-dispatcher task, after FreeRTOS task execution has ended. Use `SetOnTerminated()` when cleanup depends on the worker no longer executing `OnLoop()`. The dispatcher keeps TLS cleanup short and permits ordinary callback work without blocking the FreeRTOS cleanup context.
 
 Enqueueing termination work from FreeRTOS task-deletion cleanup is non-blocking. The default dispatcher queue can hold one pending event for every supported Thread. If a smaller configured queue is exhausted, `OnTerminated` is not invoked for that termination, shutdown waiters are still released, and a `FreeOnTerminate` object remains registered until a later explicit `ThreadManager::CleanUp()` call.

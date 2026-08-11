@@ -64,6 +64,11 @@ namespace ESPressio {
             return _queue != nullptr && _taskHandle != nullptr;
         }
 
+        bool ThreadTerminationDispatcher::IsCurrentTask() const {
+            return _taskHandle != nullptr &&
+                   xTaskGetCurrentTaskHandle() == _taskHandle;
+        }
+
         bool ThreadTerminationDispatcher::Dispatch(Thread* thread) {
             if (!IsAvailable() || thread == nullptr) {
                 return false;

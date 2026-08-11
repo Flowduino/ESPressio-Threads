@@ -43,6 +43,10 @@ namespace ESPressio {
             return ThreadTerminationDispatcher::GetInstance()->IsAvailable();
         }
 
+        bool Thread::_isCurrentTerminationDispatcherTask() {
+            return ThreadTerminationDispatcher::GetInstance()->IsCurrentTask();
+        }
+
         bool Thread::_queueTerminationDispatch(Thread* thread) {
             return ThreadTerminationDispatcher::GetInstance()->Dispatch(thread);
         }
@@ -63,12 +67,25 @@ namespace ESPressio {
                 }
             }
 
-            _terminationDispatchPending.store(false, std::memory_order_release);
-
             if (shouldGarbageCollect) {
+                // No Thread members may be accessed after releasing this
+                // lifetime guard: garbage collection may delete the object.
+                _terminationDispatchPending.store(
+                    false,
+                    std::memory_order_release
+                );
                 _requestGarbageCollection();
             } else if (taskExited != nullptr) {
                 xSemaphoreGive(taskExited);
+                _terminationDispatchPending.store(
+                    false,
+                    std::memory_order_release
+                );
+            } else {
+                _terminationDispatchPending.store(
+                    false,
+                    std::memory_order_release
+                );
             }
         }
 

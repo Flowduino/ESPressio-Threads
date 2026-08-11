@@ -43,6 +43,7 @@ namespace ESPressio {
                 static ThreadTerminationDispatcher* GetInstance();
 
                 bool IsAvailable() const;
+                bool IsCurrentTask() const;
                 bool Dispatch(Thread* thread);
         };
 

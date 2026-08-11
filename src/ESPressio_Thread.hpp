@@ -128,8 +128,28 @@ namespace ESPressio {
 
                 static void _requestGarbageCollection();
                 static bool _isTerminationDispatcherAvailable();
+                static bool _isCurrentTerminationDispatcherTask();
                 static bool _queueTerminationDispatch(Thread* thread);
                 void _dispatchTermination();
+
+                void _waitForTerminationDispatch() {
+                    if (!_terminationDispatchPending.load(
+                        std::memory_order_acquire
+                    )) {
+                        return;
+                    }
+
+                    if (_isCurrentTerminationDispatcherTask()) {
+                        return;
+                    }
+
+                    while (_terminationDispatchPending.load(
+                        std::memory_order_acquire
+                    )) {
+                        const auto delayTicks = pdMS_TO_TICKS(1);
+                        vTaskDelay(delayTicks > 0 ? delayTicks : 1);
+                    }
+                }
                 
                 void _loop() {
                     for (;;) {
@@ -296,6 +316,7 @@ namespace ESPressio {
                             Terminate();
                             SetThreadState(ThreadState::Terminated);
                         }
+                        _waitForTerminationDispatch();
                         return;
                     }
 
@@ -309,6 +330,7 @@ namespace ESPressio {
                     SetFreeOnTerminate(false);
                     Terminate();
                     xSemaphoreTake(_taskExited, portMAX_DELAY);
+                    _waitForTerminationDispatch();
                 }
 
             private:
@@ -450,11 +472,6 @@ namespace ESPressio {
                             );
 
                             if (!Thread::_queueTerminationDispatch(instance)) {
-                                instance->_terminationDispatchPending.store(
-                                    false,
-                                    std::memory_order_release
-                                );
-
                                 // Task-deletion callbacks must not block or
                                 // lazily create/signal other worker tasks. If
                                 // the dispatcher queue is unexpectedly full,
@@ -464,6 +481,13 @@ namespace ESPressio {
                                 if (instance->_taskExited != nullptr) {
                                     xSemaphoreGive(instance->_taskExited);
                                 }
+
+                                // Release the lifetime guard only after the
+                                // final access to the Thread and its semaphore.
+                                instance->_terminationDispatchPending.store(
+                                    false,
+                                    std::memory_order_release
+                                );
                             }
                         }
                     );
