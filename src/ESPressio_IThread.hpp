@@ -77,6 +77,13 @@ namespace ESPressio {
                 /// `Pause` will pause the Thread loop if it is running.
                 virtual void Pause() = 0;
 
+                /// Atomically claims this object for manager-driven cleanup.
+                /// The default preserves compatibility for custom IThread
+                /// implementations that rely only on FreeOnTerminate.
+                virtual bool TryClaimAutomaticCleanup() {
+                    return GetFreeOnTerminate();
+                }
+
             // Getters
 
                 /// `GetCoreID` returns the ID of the Core the Thread is running on.

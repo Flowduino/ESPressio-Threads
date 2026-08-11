@@ -262,7 +262,9 @@ namespace ESPressio {
 
                     _threads.WithWriteLock([&deleteThreads](std::vector<IThread*>& threads) {
                         for (auto thread : threads) {
-                            if (thread->GetThreadState() == ThreadState::Terminated && thread->GetFreeOnTerminate()) {
+                            if (thread->GetThreadState() ==
+                                    ThreadState::Terminated &&
+                                thread->TryClaimAutomaticCleanup()) {
                                 deleteThreads.push_back(thread);
                             }
                         }

@@ -24,6 +24,8 @@ namespace ESPressio {
         }
 
         Thread::~Thread() {
+            SetFreeOnTerminate(false);
+            _waitForTerminationDispatch();
             SetThreadState(ThreadState::Destroyed);
             TOnThreadEvent onDestroy = GetOnDestroy();
             if (onDestroy != nullptr) {
@@ -61,8 +63,6 @@ namespace ESPressio {
         void Thread::_dispatchTermination() {
             const bool terminated =
                 GetThreadState() == ThreadState::Terminated;
-            const bool shouldGarbageCollect =
-                terminated && GetFreeOnTerminate();
             const SemaphoreHandle_t taskExited = _taskExited;
             TOnThreadEvent onTerminated = GetOnTerminated();
 
@@ -74,25 +74,24 @@ namespace ESPressio {
                 }
             }
 
-            if (shouldGarbageCollect) {
-                // No Thread members may be accessed after releasing this
-                // lifetime guard: garbage collection may delete the object.
-                _terminationDispatchPending.store(
-                    false,
-                    std::memory_order_release
-                );
-                _requestGarbageCollection();
-            } else if (taskExited != nullptr) {
+            const bool requestGarbageCollection =
+                terminated && GetFreeOnTerminate();
+
+            if (taskExited != nullptr) {
                 xSemaphoreGive(taskExited);
-                _terminationDispatchPending.store(
-                    false,
-                    std::memory_order_release
-                );
-            } else {
-                _terminationDispatchPending.store(
-                    false,
-                    std::memory_order_release
-                );
+            }
+
+            // This is the dispatcher's final access to the Thread object.
+            _terminationDispatchPending.store(false, std::memory_order_release);
+
+            if (requestGarbageCollection) {
+                try {
+                    _requestGarbageCollection();
+                } catch (...) {
+                    // Infrastructure failures must not terminate the
+                    // dispatcher task. The object remains manager-owned and
+                    // can be collected by a later explicit cleanup request.
+                }
             }
         }
 

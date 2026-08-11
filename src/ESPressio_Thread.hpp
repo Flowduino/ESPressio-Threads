@@ -43,6 +43,12 @@ namespace ESPressio {
         */
         class Thread : public IThread {
             private:
+                enum class CleanupClaim : uint8_t {
+                    Available,
+                    Manual,
+                    Automatic
+                };
+
             // Type Definitions
                 
                 /// `TOnThreadEvent` is a function type that can be used to handle Thread events.
@@ -63,6 +69,9 @@ namespace ESPressio {
                 std::atomic<TaskHandle_t> _initializingTaskHandle{nullptr};
                 std::atomic<bool> _initializationInProgress{false};
                 std::atomic<bool> _terminationDispatchPending{false};
+                std::atomic<CleanupClaim> _cleanupClaim{
+                    CleanupClaim::Available
+                };
                 SemaphoreHandle_t _taskExited = xSemaphoreCreateBinary();
                 mutable std::mutex _taskConfigurationMutex;
                 ReadWriteMutex<uint32_t> _stackSize = ReadWriteMutex<uint32_t>(ESPRESSIO_THREAD_DEFAULT_STACK_SIZE);
@@ -318,6 +327,15 @@ namespace ESPressio {
                 /// longer accesses this object. Derived destructors should call
                 /// this before destroying members used by OnLoop().
                 void Shutdown() {
+                    CleanupClaim expectedClaim = CleanupClaim::Available;
+                    _cleanupClaim.compare_exchange_strong(
+                        expectedClaim,
+                        CleanupClaim::Manual,
+                        std::memory_order_acq_rel,
+                        std::memory_order_acquire
+                    );
+                    SetFreeOnTerminate(false);
+
                     // A caller running inside this Thread cannot wait for its
                     // own task deletion callback.
                     const TaskHandle_t handle =
@@ -349,9 +367,6 @@ namespace ESPressio {
                         return;
                     }
 
-                    // Explicit shutdown owns object destruction, so automatic
-                    // garbage collection must not race the waiting caller.
-                    SetFreeOnTerminate(false);
                     Terminate();
                     xSemaphoreTake(_taskExited, portMAX_DELAY);
                     _waitForTerminationDispatch();
@@ -417,7 +432,14 @@ namespace ESPressio {
                             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
                             if (instance != nullptr) {
-                                instance->_loop();
+                                try {
+                                    instance->_loop();
+                                } catch (...) {
+                                    // User code must not unwind through the
+                                    // FreeRTOS task entry point. Convert worker
+                                    // failures into ordinary termination.
+                                    instance->Terminate();
+                                }
 
                                 // Prevent restart between publishing task exit
                                 // and enqueueing asynchronous termination work.
@@ -703,6 +725,21 @@ namespace ESPressio {
                     );
                 }
 
+                bool TryClaimAutomaticCleanup() override {
+                    if (!GetFreeOnTerminate() ||
+                        GetThreadState() != ThreadState::Terminated) {
+                        return false;
+                    }
+
+                    CleanupClaim expected = CleanupClaim::Available;
+                    return _cleanupClaim.compare_exchange_strong(
+                        expected,
+                        CleanupClaim::Automatic,
+                        std::memory_order_acq_rel,
+                        std::memory_order_acquire
+                    );
+                }
+
             // Getters
 
                 int GetCoreID() override {
@@ -802,6 +839,24 @@ namespace ESPressio {
 
                 void SetFreeOnTerminate(bool value) override {
                     _freeOnTerminate.Set(value);
+
+                    if (value) {
+                        CleanupClaim expected = CleanupClaim::Manual;
+                        _cleanupClaim.compare_exchange_strong(
+                            expected,
+                            CleanupClaim::Available,
+                            std::memory_order_acq_rel,
+                            std::memory_order_acquire
+                        );
+                    } else {
+                        CleanupClaim expected = CleanupClaim::Available;
+                        _cleanupClaim.compare_exchange_strong(
+                            expected,
+                            CleanupClaim::Manual,
+                            std::memory_order_acq_rel,
+                            std::memory_order_acquire
+                        );
+                    }
                 }
 
                 void SetStartOnInitialize(bool value) override {

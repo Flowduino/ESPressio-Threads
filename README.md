@@ -419,13 +419,19 @@ Directly destroying a running derived object without first calling `Shutdown()` 
 
 Calling `Shutdown()` claims manual ownership of destruction by disabling `FreeOnTerminate`. Consequently, code that explicitly shuts down a dynamically allocated Thread remains responsible for deleting it.
 
+Manual and automatic cleanup now use an atomic ownership claim. If `Shutdown()` begins before manager cleanup claims the object, manual ownership wins and `ThreadManager::CleanUp()` will not delete it. Conversely, once manager cleanup has atomically claimed an object, application code must no longer access that `FreeOnTerminate` instance.
+
 `Shutdown()` also waits for queued termination-dispatch work after the worker task has exited. When it returns, neither the worker nor the termination dispatcher will access the object, so derived members may be destroyed safely. Calling `Shutdown()` from `OnTerminated` itself does not wait on the dispatcher task and therefore does not deadlock; the callback must still not delete its sender.
 
 Termination has two callback milestones. `SetOnTerminate()` registers a callback for the moment the Thread loop enters the `Terminated` state. `SetOnTerminated()` runs later on the dedicated termination-dispatcher task, after FreeRTOS task execution has ended. Use `SetOnTerminated()` when cleanup depends on the worker no longer executing `OnLoop()`. The dispatcher keeps TLS cleanup short and permits ordinary callback work without blocking the FreeRTOS cleanup context.
 
 Enqueueing termination work from FreeRTOS task-deletion cleanup is non-blocking. The default dispatcher queue can hold one pending event for every supported Thread. If a smaller configured queue is exhausted, `OnTerminated` is not invoked for that termination, shutdown waiters are still released, and a `FreeOnTerminate` object remains registered until a later explicit `ThreadManager::CleanUp()` call.
 
-An `OnTerminated` callback must not directly delete its sender. The automatic-cleanup decision is captured before the callback begins, so changing `FreeOnTerminate` inside this callback affects future lifecycles rather than the cleanup already in progress. After the callback returns, the library performs only operations captured before user code ran and does not dereference the Thread object again.
+An `OnTerminated` callback must not directly delete its sender. It may change `FreeOnTerminate`; the dispatcher evaluates that setting after the callback and manager cleanup must subsequently win the atomic automatic-cleanup claim before deletion can occur.
+
+Automatic garbage collection runs on a private infrastructure task rather than an `IThread`. It therefore consumes neither a public Thread ID nor one of the 256 registration slots. Its stack size and priority can be configured with `ESPRESSIO_THREAD_GARBAGE_COLLECTOR_STACK_SIZE` and `ESPRESSIO_THREAD_GARBAGE_COLLECTOR_PRIORITY`.
+
+Exceptions escaping `OnLoop()` are contained at the FreeRTOS task boundary and converted into ordinary Thread termination. This prevents user code from unwinding through the task entry point or invoking `std::terminate`; applications should catch and report exceptions inside `OnLoop()` when failure details are required.
 
 ## Thread-Safe Members (Properties)
 When working with multiple Threads (*especially on multi-core hardware such as the ESP32 microcontrollers*) it is absolutely critical that we identify any and all *members* (properties) within our Objects that may be simultainously accessed (be that read or write) by multiple Threads at any given moment.
