@@ -126,15 +126,45 @@ namespace ESPressio {
                         throw ThreadInvalidRegistrationException();
                     }
 
+                    ThreadRecord existingRecord{0, nullptr, 0};
+
+                    _threads.WithSharedReadLock(
+                        [thread, &existingRecord](
+                            const std::vector<ThreadRecord>& threads
+                        ) {
+                            const auto existing = std::find_if(
+                                threads.begin(),
+                                threads.end(),
+                                [thread](const ThreadRecord& record) {
+                                    return record.thread == thread;
+                                }
+                            );
+
+                            if (existing != threads.end()) {
+                                existingRecord = *existing;
+                            }
+                        }
+                    );
+
+                    if (existingRecord.thread != nullptr) {
+                        if (assignedThreadID != nullptr) {
+                            *assignedThreadID = existingRecord.id;
+                        }
+                        return existingRecord.coreID;
+                    }
+
                     // Custom implementations may re-enter ThreadManager from
                     // GetThreadID(), so evaluate it before taking the list
-                    // lock. Thread itself requests manager-assigned IDs.
+                    // write lock. Thread itself requests manager-assigned IDs.
                     const uint8_t requestedThreadID =
                         assignedThreadID == nullptr ?
                             thread->GetThreadID() : 0;
                     int useCore = 0;
+                    uint8_t resolvedThreadID = requestedThreadID;
 
                     _threads.WithWriteLock([&](std::vector<ThreadRecord>& threads) {
+                        // Another task may have registered this pointer after
+                        // the initial read-lock fast path.
                         const auto existing = std::find_if(
                             threads.begin(),
                             threads.end(),
@@ -144,9 +174,7 @@ namespace ESPressio {
                         );
 
                         if (existing != threads.end()) {
-                            if (assignedThreadID != nullptr) {
-                                *assignedThreadID = existing->id;
-                            }
+                            resolvedThreadID = existing->id;
                             useCore = existing->coreID;
                             return;
                         }
@@ -154,7 +182,6 @@ namespace ESPressio {
                         uint8_t recordID = requestedThreadID;
 
                         if (assignedThreadID != nullptr) {
-                            *assignedThreadID = 0;
                             bool assigned = false;
 
                             for (unsigned int candidate = 1;
@@ -171,7 +198,7 @@ namespace ESPressio {
                                 );
 
                                 if (!inUse) {
-                                    *assignedThreadID = candidateID;
+                                    recordID = candidateID;
                                     assigned = true;
                                     break;
                                 }
@@ -197,8 +224,6 @@ namespace ESPressio {
                             if (!assigned) {
                                 throw ThreadLimitExceededException();
                             }
-
-                            recordID = *assignedThreadID;
                         } else {
                             const bool idInUse = std::any_of(
                                 threads.begin(),
@@ -222,7 +247,16 @@ namespace ESPressio {
                             threads.push_back({recordID, thread, useCore});
                             nextCoreID = (useCore + 1) % coreCount;
                         });
+
+                        resolvedThreadID = recordID;
                     });
+
+                    // Publish the ID only after insertion has committed (or a
+                    // concurrently inserted record has been found).
+                    if (assignedThreadID != nullptr) {
+                        *assignedThreadID = resolvedThreadID;
+                    }
+
                     return useCore;
                 }
 
