@@ -1,7 +1,7 @@
 {
     "name": "ESPressio-Threads",
     "description": "Threding Library intended for use with multi-core ESP microcontrollers",
-    "keywords": "thread,threads,threading,esp,esp32,esp8266,espressif,multi-threading,multi-core",
+    "keywords": "thread,threads,threading,esp,esp32,espressif,multi-threading,multi-core",
     "authors": {
         "name": "Flowduino",
         "maintainer": true
@@ -12,8 +12,13 @@
     },
     "version": "1.2.0",
     "license": "Apache-2.0",
-    "frameworks": "*",
-    "platforms": "*",
+    "frameworks": [
+        "arduino",
+        "espidf"
+    ],
+    "platforms": [
+        "espressif32"
+    ],
     "dependencies": [
     ]
 }

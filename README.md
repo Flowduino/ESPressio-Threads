@@ -261,6 +261,8 @@ The callback runs synchronously on the caller of `Initialize()`, after internal 
 
 Exceptions thrown by lifecycle callbacks are contained by the library. `OnStateChange`, `OnInitialize`, `OnStart`, `OnPause`, `OnTerminate`, `OnTerminated`, `OnInitializationFailed`, and `OnDestroy` cannot escape the public lifecycle operation that invoked them. `OnStateChange` and the state-specific callback are isolated from one another, so an exception in either handler does not suppress the other. During `Initialize()`, a lifecycle callback exception produces `InitializationException` after safe task cleanup; during other lifecycle operations it is contained without being rethrown. Applications should still handle and report errors inside callbacks.
 
+State transitions and their callbacks are serialized across tasks. A callback may re-enter lifecycle methods; if `OnStateChange` moves the Thread into another state, the obsolete state-specific callback for the earlier transition is suppressed. Initialization exceptions are attributed only to callbacks executing on the task that invoked `Initialize()`.
+
 ```cpp
 ThreadInitializationStatus status = thread1.Initialize();
 
@@ -430,6 +432,8 @@ Enqueueing termination work from FreeRTOS task-deletion cleanup is non-blocking.
 An `OnTerminated` callback must not directly delete its sender. It may change `FreeOnTerminate`; the dispatcher evaluates that setting after the callback and manager cleanup must subsequently win the atomic automatic-cleanup claim before deletion can occur.
 
 Automatic garbage collection runs on a private infrastructure task rather than an `IThread`. It therefore consumes neither a public Thread ID nor one of the 256 registration slots. Its stack size and priority can be configured with `ESPRESSIO_THREAD_GARBAGE_COLLECTOR_STACK_SIZE` and `ESPRESSIO_THREAD_GARBAGE_COLLECTOR_PRIORITY`.
+
+If garbage-collector task creation fails because resources are temporarily unavailable, later cleanup requests retry initialization. If retry still fails, cleanup runs synchronously on the requesting ordinary task so `FreeOnTerminate` objects are not leaked permanently. `ThreadGarbageCollector::IsAvailable()` reports whether its background task is currently available.
 
 Exceptions escaping `OnLoop()` are contained at the FreeRTOS task boundary and converted into ordinary Thread termination. This prevents user code from unwinding through the task entry point or invoking `std::terminate`; applications should catch and report exceptions inside `OnLoop()` when failure details are required.
 

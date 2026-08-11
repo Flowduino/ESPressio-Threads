@@ -74,6 +74,7 @@ namespace ESPressio {
                 };
                 SemaphoreHandle_t _taskExited = xSemaphoreCreateBinary();
                 mutable std::mutex _taskConfigurationMutex;
+                mutable std::recursive_mutex _stateTransitionMutex;
                 ReadWriteMutex<uint32_t> _stackSize = ReadWriteMutex<uint32_t>(ESPRESSIO_THREAD_DEFAULT_STACK_SIZE);
                 ReadWriteMutex<unsigned int> _priority = ReadWriteMutex<unsigned int>(2);
                 ReadWriteMutex<int> _coreID = ReadWriteMutex<int>(0);
@@ -224,7 +225,11 @@ namespace ESPressio {
                         }
                     }
 
-                    if (onThreadEvent != nullptr) {
+                    // A reentrant OnStateChange callback may have moved the
+                    // Thread into another state. Do not emit a stale event for
+                    // a state that is no longer current.
+                    if (onThreadEvent != nullptr &&
+                        GetThreadState() == newState) {
                         try {
                             onThreadEvent(this);
                         } catch (...) {
@@ -234,9 +239,13 @@ namespace ESPressio {
                         }
                     }
 
-                    if (callbackFailed && _initializationInProgress.load(
-                        std::memory_order_acquire
-                    )) {
+                    if (callbackFailed &&
+                        _initializationInProgress.load(
+                            std::memory_order_acquire
+                        ) &&
+                        _initializingTaskHandle.load(
+                            std::memory_order_acquire
+                        ) == xTaskGetCurrentTaskHandle()) {
                         // Initialize() converts this internal signal into
                         // InitializationException after cleaning up its gated
                         // worker task.
@@ -263,6 +272,9 @@ namespace ESPressio {
             // Setters (Internal)
 
                 void SetThreadState(ThreadState state) {
+                    std::lock_guard<std::recursive_mutex> transitionLock(
+                        _stateTransitionMutex
+                    );
                     ThreadState oldState = state;
                     bool changed = false;
 
@@ -285,6 +297,9 @@ namespace ESPressio {
                     ThreadState expectedState,
                     ThreadState newState
                 ) {
+                    std::lock_guard<std::recursive_mutex> transitionLock(
+                        _stateTransitionMutex
+                    );
                     bool changed = false;
 
                     _threadState.WithWriteLock([&](ThreadState& currentState) {

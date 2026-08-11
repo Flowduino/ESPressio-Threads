@@ -4,6 +4,8 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 
+#include <mutex>
+
 #include "ESPressio_ThreadManager.hpp"
 #include "ESPressio_IThreadGarbageCollector.hpp"
 
@@ -23,12 +25,21 @@ namespace ESPressio {
             private:
                 SemaphoreHandle_t _semaphore = nullptr;
                 TaskHandle_t _taskHandle = nullptr;
+                mutable std::mutex _initializationMutex;
 
                 ThreadGarbageCollector() {
+                    _initialize();
+                }
+
+                bool _initialize() {
+                    if (_semaphore != nullptr && _taskHandle != nullptr) {
+                        return true;
+                    }
+
                     _semaphore = xSemaphoreCreateBinary();
 
                     if (_semaphore == nullptr) {
-                        return;
+                        return false;
                     }
 
                     const BaseType_t result = xTaskCreate(
@@ -44,7 +55,10 @@ namespace ESPressio {
                         vSemaphoreDelete(_semaphore);
                         _semaphore = nullptr;
                         _taskHandle = nullptr;
+                        return false;
                     }
+
+                    return true;
                 }
 
                 static void _taskEntry(void* parameter) {
@@ -82,10 +96,39 @@ namespace ESPressio {
                 ThreadGarbageCollector& operator=(
                     const ThreadGarbageCollector&
                 ) = delete;
+
+                bool IsAvailable() const {
+                    std::lock_guard<std::mutex> lock(_initializationMutex);
+                    return _semaphore != nullptr && _taskHandle != nullptr;
+                }
                 
                 void CleanUp() override {
-                    if (_semaphore != nullptr && _taskHandle != nullptr) {
-                        xSemaphoreGive(_semaphore);
+                    SemaphoreHandle_t semaphore = nullptr;
+
+                    {
+                        std::lock_guard<std::mutex> lock(
+                            _initializationMutex
+                        );
+
+                        if (_initialize()) {
+                            semaphore = _semaphore;
+                        }
+                    }
+
+                    if (semaphore != nullptr) {
+                        xSemaphoreGive(semaphore);
+                        return;
+                    }
+
+                    // Resource exhaustion may prevent the infrastructure task
+                    // from being created. The caller is an ordinary task (not
+                    // TLS deletion cleanup), so synchronous collection is a
+                    // safe fallback and prevents permanent leaks.
+                    try {
+                        ThreadManager::GetInstance()->CleanUp();
+                    } catch (...) {
+                        // A custom IThread must not propagate infrastructure
+                        // failures through a cleanup request.
                     }
                 }
         };

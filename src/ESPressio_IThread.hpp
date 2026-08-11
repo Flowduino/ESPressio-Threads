@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <stdexcept>
@@ -45,6 +46,9 @@ namespace ESPressio {
             You can use it to reference any Thread Type without knowing the actual type.
         */
         class IThread  {
+            private:
+                std::atomic<bool> _automaticCleanupClaimed{false};
+
             public:
             // Type Defs
 
@@ -81,7 +85,17 @@ namespace ESPressio {
                 /// The default preserves compatibility for custom IThread
                 /// implementations that rely only on FreeOnTerminate.
                 virtual bool TryClaimAutomaticCleanup() {
-                    return GetFreeOnTerminate();
+                    if (!GetFreeOnTerminate()) {
+                        return false;
+                    }
+
+                    bool expected = false;
+                    return _automaticCleanupClaimed.compare_exchange_strong(
+                        expected,
+                        true,
+                        std::memory_order_acq_rel,
+                        std::memory_order_acquire
+                    );
                 }
 
             // Getters
