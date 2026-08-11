@@ -257,6 +257,8 @@ thread1.SetOnInitializationFailed(
 
 The callback runs synchronously on the caller of `Initialize()`, after internal initialization locks have been released, for every status other than `Success` (including `AlreadyInitialized`). Exceptions thrown by this callback are contained and do not replace the status returned by `Initialize()`.
 
+`Start()` also returns `ThreadInitializationStatus`. When it must create a task, it returns the exact result from `Initialize()` and does not attempt to start the Thread after a failed initialization. For an initialized, paused, or already-running Thread it performs the applicable start/resume operation and returns `AlreadyInitialized`; for a terminating or destroyed Thread it returns `InvalidState`. Existing calls may ignore the returned value, but custom classes implementing `IThread` directly must update their `Start()` override to use this return type.
+
 Exceptions thrown by lifecycle callbacks are contained by the library. `OnStateChange`, `OnInitialize`, `OnStart`, `OnPause`, `OnTerminate`, `OnTerminated`, `OnInitializationFailed`, and `OnDestroy` cannot escape the public lifecycle operation that invoked them. `OnStateChange` and the state-specific callback are isolated from one another, so an exception in either handler does not suppress the other. During `Initialize()`, a lifecycle callback exception produces `InitializationException` after safe task cleanup; during other lifecycle operations it is contained without being rethrown. Applications should still handle and report errors inside callbacks.
 
 ```cpp

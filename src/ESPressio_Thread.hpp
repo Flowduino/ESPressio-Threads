@@ -650,38 +650,50 @@ namespace ESPressio {
                     }
                 }
 
-                void Start() override {
+                ThreadInitializationStatus Start() override {
 
                     switch (GetThreadState()) {
                         case ThreadState::Uninitialized:
                         case ThreadState::Terminated:
-                            Initialize();
+                            {
+                                const ThreadInitializationStatus status =
+                                    Initialize();
 
-                            TrySetThreadState(
-                                ThreadState::Initialized,
-                                ThreadState::Running
-                            );
-                            return;
+                                if (status !=
+                                    ThreadInitializationStatus::Success) {
+                                    return status;
+                                }
+
+                                TrySetThreadState(
+                                    ThreadState::Initialized,
+                                    ThreadState::Running
+                                );
+                                return status;
+                            }
 
                         case ThreadState::Initialized:
                             TrySetThreadState(
                                 ThreadState::Initialized,
                                 ThreadState::Running
                             );
-                            return;
+                            return ThreadInitializationStatus::AlreadyInitialized;
 
                         case ThreadState::Paused:
                             TrySetThreadState(
                                 ThreadState::Paused,
                                 ThreadState::Running
                             );
-                            return;
+                            return ThreadInitializationStatus::AlreadyInitialized;
 
                         case ThreadState::Running:
+                            return ThreadInitializationStatus::AlreadyInitialized;
+
                         case ThreadState::Terminating:
                         case ThreadState::Destroyed:
-                            return;
+                            return ThreadInitializationStatus::InvalidState;
                     }
+
+                    return ThreadInitializationStatus::InvalidState;
                 }
 
                 void Pause() override {

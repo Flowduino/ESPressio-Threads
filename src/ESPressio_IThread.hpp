@@ -70,7 +70,9 @@ namespace ESPressio {
 
                 /// `Start` will start the Thread loop if it is not already running.
                 /// It will also Resume the thread if it is `Paused`.
-                virtual void Start() = 0;
+                /// Its return value exposes initialization failures when a new
+                /// task must be created.
+                virtual ThreadInitializationStatus Start() = 0;
 
                 /// `Pause` will pause the Thread loop if it is running.
                 virtual void Pause() = 0;
