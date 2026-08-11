@@ -73,6 +73,15 @@ namespace ESPressio {
                 }
         };
 
+        class ThreadInvalidRegistrationException :
+            public ThreadRegistrationException {
+            public:
+                ThreadInvalidRegistrationException()
+                    : ThreadRegistrationException(
+                        "Cannot register a null Thread pointer"
+                    ) {}
+        };
+
         class ThreadLimitExceededException :
             public ThreadRegistrationException {
             public:

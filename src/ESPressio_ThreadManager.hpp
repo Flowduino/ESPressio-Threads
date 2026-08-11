@@ -33,9 +33,12 @@ namespace ESPressio {
                 struct ThreadRecord {
                     uint8_t id;
                     IThread* thread;
+                    int coreID;
 
                     bool operator==(const ThreadRecord& other) const {
-                        return id == other.id && thread == other.thread;
+                        return id == other.id &&
+                               thread == other.thread &&
+                               coreID == other.coreID;
                     }
                 };
 
@@ -120,7 +123,7 @@ namespace ESPressio {
                     uint8_t* assignedThreadID = nullptr
                 ) {
                     if (thread == nullptr) {
-                        return 0;
+                        throw ThreadInvalidRegistrationException();
                     }
 
                     // Custom implementations may re-enter ThreadManager from
@@ -129,6 +132,7 @@ namespace ESPressio {
                     const uint8_t requestedThreadID =
                         assignedThreadID == nullptr ?
                             thread->GetThreadID() : 0;
+                    int useCore = 0;
 
                     _threads.WithWriteLock([&](std::vector<ThreadRecord>& threads) {
                         const auto existing = std::find_if(
@@ -143,6 +147,7 @@ namespace ESPressio {
                             if (assignedThreadID != nullptr) {
                                 *assignedThreadID = existing->id;
                             }
+                            useCore = existing->coreID;
                             return;
                         }
 
@@ -208,14 +213,15 @@ namespace ESPressio {
                             }
                         }
 
-                        threads.push_back({recordID, thread});
-                    });
-
-                    int useCore = 0;
-                    _nextCoreID.WithWriteLock([&useCore](int& nextCoreID) {
-                        const int coreCount = _getCoreCount();
-                        useCore = nextCoreID % coreCount;
-                        nextCoreID = (useCore + 1) % coreCount;
+                        // Hold the core counter lock until insertion succeeds,
+                        // so a failed vector allocation neither registers a
+                        // partial record nor advances round-robin state.
+                        _nextCoreID.WithWriteLock([&](int& nextCoreID) {
+                            const int coreCount = _getCoreCount();
+                            useCore = nextCoreID % coreCount;
+                            threads.push_back({recordID, thread, useCore});
+                            nextCoreID = (useCore + 1) % coreCount;
+                        });
                     });
                     return useCore;
                 }
@@ -275,7 +281,7 @@ namespace ESPressio {
                     std::function<void(IThread*)> callback
                 ) {
                     IterationGuard iteration(*this);
-                    ThreadRecord result{0, nullptr};
+                    ThreadRecord result{0, nullptr, 0};
 
                     _threads.WithSharedReadLock(
                         [threadID, &result](const std::vector<ThreadRecord>& threads) {

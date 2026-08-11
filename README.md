@@ -241,7 +241,7 @@ The explicit maximum number of *ESPressio* `Thread`s supported by the library is
 
 Attempting to construct another registered Thread after all 256 IDs are occupied throws `ThreadLimitExceededException`. This library configuration therefore requires C++ exception support to be enabled.
 
-Library exceptions use a common type hierarchy. `ThreadException` is the root type. `ThreadRegistrationException` represents registration failures; `ThreadLimitExceededException` and `ThreadDuplicateIDException` derive from it. `ThreadDuplicateIDException::GetThreadID()` returns the conflicting custom ID. `ThreadExecutionException` derives directly from `ThreadException` and reports an exception escaping `OnLoop()`.
+Library exceptions use a common type hierarchy. `ThreadException` is the root type. `ThreadRegistrationException` represents registration failures; `ThreadLimitExceededException`, `ThreadDuplicateIDException`, and `ThreadInvalidRegistrationException` derive from it. `ThreadDuplicateIDException::GetThreadID()` returns the conflicting custom ID, while `ThreadInvalidRegistrationException` reports an attempt to register a null pointer. `ThreadExecutionException` derives directly from `ThreadException` and reports an exception escaping `OnLoop()`.
 
 `Initialize()` returns `ThreadInitializationStatus`. `Success` means a task was created and initialization completed. The remaining values describe why initialization did not start or complete: `AlreadyInitialized`, `InvalidState`, `ExitSignalUnavailable`, `TerminationDispatcherUnavailable`, `TerminationDispatchPending`, `TaskCreationFailed`, `ConcurrentInitializationLost`, `TerminatedDuringInitialization`, or `InitializationException`.
 
@@ -317,9 +317,11 @@ Now, all three of our `MyFirstThread` instances will start exactly as they did b
 
 `ThreadManager::ForEachThread()` and `ThreadManager::Initialize()` invoke Thread code without holding the manager's thread-list lock, so callbacks may safely re-enter the manager. The manager pins these operations while they run and defers automatic garbage-collection deletion until the final active iteration completes.
 
-The manager stores an immutable registration record containing the assigned ID and non-owning Thread pointer. Lookups and initialization results use that stored ID rather than invoking `GetThreadID()` while locked. Cleanup is performed in two phases: state and cleanup-claim virtual methods run without the thread-list lock, then the manager reacquires the lock and removes only records whose ID and pointer still exactly match. Custom `IThread` implementations may therefore re-enter `ThreadManager` from these virtual methods without deadlocking the list lock.
+The manager stores an immutable registration record containing the assigned ID, non-owning Thread pointer, and assigned core. Lookups and initialization results use that stored ID rather than invoking `GetThreadID()` while locked. Registering the same pointer again returns its original ID and core without advancing round-robin core assignment. New registration is transactional: the core counter advances only after the record is inserted successfully, and `Thread` construction removes its record if a later constructor operation throws. Cleanup is performed in two phases: state and cleanup-claim virtual methods run without the thread-list lock, then the manager reacquires the lock and removes only records whose ID and pointer still exactly match. Custom `IThread` implementations may therefore re-enter `ThreadManager` from these virtual methods without deadlocking the list lock.
 
 `Thread` instances request unique IDs from the manager automatically. A custom `IThread` registered through `AddThread(thread)` supplies its own `GetThreadID()` value; registration throws `ThreadDuplicateIDException` if that ID is already present, preventing ambiguous lookup or removal.
+
+Calling `AddThread(nullptr)` throws `ThreadInvalidRegistrationException` rather than silently returning a core assignment.
 
 The pin protects against deletion performed by `ThreadManager::CleanUp()`. Application code must not directly delete a Thread concurrently with manager iteration; unmanaged concurrent destruction remains unsupported because the manager stores non-owning pointers in order to support both stack-allocated and dynamically allocated Threads.
 

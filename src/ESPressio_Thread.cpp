@@ -15,11 +15,21 @@ namespace ESPressio {
                     ThreadManager::GetInstance()->AddThread(this, &_threadID)
                 );
             } catch (...) {
+                const std::exception_ptr constructionFailure =
+                    std::current_exception();
+
+                try {
+                    ThreadManager::GetInstance()->RemoveThread(this);
+                } catch (...) {
+                    // Preserve the original construction failure.
+                }
+
                 if (_taskExited != nullptr) {
                     vSemaphoreDelete(_taskExited);
                     _taskExited = nullptr;
                 }
-                throw;
+
+                std::rethrow_exception(constructionFailure);
             }
         }
 
