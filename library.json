@@ -1,6 +1,6 @@
 {
     "name": "ESPressio-Threads",
-    "description": "Threding Library intended for use with multi-core ESP microcontrollers",
+    "description": "Threading library for single- and multi-core ESP32 microcontrollers",
     "keywords": "thread,threads,threading,esp,esp32,espressif,multi-threading,multi-core",
     "authors": {
         "name": "Flowduino",

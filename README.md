@@ -6,6 +6,14 @@ Light-weight and easy-to-use Threading for your Microcontroller development work
 ## Latest Stable Version
 The latest Stable Version is [1.3.0](https://github.com/Flowduino/ESPressio-Threads/releases/tag/1.3.0).
 
+## Compatibility
+
+ESPressio Threads supports the **ESP32 family** under Arduino-ESP32 or ESP-IDF. This includes classic ESP32 and current single- and multi-core variants such as ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-H2, and ESP32-P4 when supported by the installed framework version. Single-core devices use CPU 0; multiple hardware cores are not required.
+
+The implementation directly uses ESP-IDF FreeRTOS task, queue, semaphore, and task-local-storage APIs. It is therefore not compatible with ESP8266 or non-ESP32 families such as AVR, SAMD, RP2040, STM32, or Renesas, even if another FreeRTOS port is available there without an ESP-IDF-compatible API surface.
+
+Compatibility is source-derived; each device should be verified against the specific Arduino-ESP32 or ESP-IDF version used by the application.
+
 ## ESPressio Development Platform
 The **ESPressio** Development Platform is a collection of discrete (sometimes intra-connected) Component Libraries developed with a particular development ethos in mind.
 
