@@ -42,7 +42,7 @@ namespace ESPressio {
                             PrecisionThread* thread,
                             IterationTime delta,
                             IterationTime startTime,
-                            bool isLate
+                            SkippedIterationCount skippedIterations
                         ) {
                             ExecuteNotification([&](
                                 NotificationContext& notification
@@ -51,7 +51,10 @@ namespace ESPressio {
                                     IPrecisionThreadObserver
                                 >([&](IPrecisionThreadObserver* observer) {
                                     observer->OnPrecisionThreadIteration(
-                                        thread, delta, startTime, isLate
+                                        thread,
+                                        delta,
+                                        startTime,
+                                        skippedIterations
                                     );
                                 });
                             });
@@ -181,7 +184,7 @@ namespace ESPressio {
                 virtual void Iterate(
                     IterationTime delta,
                     IterationTime startTime,
-                    bool isLate
+                    SkippedIterationCount skippedIterations
                 ) = 0;
 
                 void OnLoop() final override {
@@ -191,7 +194,7 @@ namespace ESPressio {
                     uint64_t remainingNanoseconds = 0;
                     uint64_t measurementGeneration = 0;
                     bool shouldWait = false;
-                    bool isLate = false;
+                    SkippedIterationCount skippedIterations = 0;
 
                     {
                         std::lock_guard<std::mutex> lock(_timingMutex);
@@ -225,9 +228,12 @@ namespace ESPressio {
                                     now - _nextIterationNanoseconds;
                                 const uint64_t elapsedPeriods =
                                     behind / period;
-                                isLate = elapsedPeriods > 0;
+                                skippedIterations = elapsedPeriods;
                                 const uint64_t periodsToAdvance =
-                                    elapsedPeriods + 1;
+                                    elapsedPeriods ==
+                                        std::numeric_limits<uint64_t>::max()
+                                        ? elapsedPeriods
+                                        : elapsedPeriods + 1;
                                 const uint64_t advance =
                                     periodsToAdvance >
                                         std::numeric_limits<uint64_t>::max() /
@@ -257,7 +263,7 @@ namespace ESPressio {
                     const IterationTime delta =
                         _fromNanoseconds(deltaNanoseconds);
                     const IterationTime startTime = _fromNanoseconds(now);
-                    Iterate(delta, startTime, isLate);
+                    Iterate(delta, startTime, skippedIterations);
                     const uint64_t end = _getNowNanoseconds();
 
                     {
@@ -271,7 +277,7 @@ namespace ESPressio {
                     }
 
                     _iterationObservable->Notify(
-                        this, delta, startTime, isLate
+                        this, delta, startTime, skippedIterations
                     );
                     if (period == 0) {
                         taskYIELD();

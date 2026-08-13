@@ -19,14 +19,16 @@ Compatibility is source-derived; each device should be verified against the spec
 PrecisionThread is a high-resolution periodic Thread driven by an
 ESPressio-Timing ISystemClock. Pass an injected clock to its constructor, or
 pass nothing to use the shared SystemClock. Derive from it and implement
-Iterate(delta, startTime, isLate).
+Iterate(delta, startTime, skippedIterations).
 
 The iteration period is an unsigned integral ESPressio Time value, so callers
 can use units such as Seconds<uint64_t>, MilliSeconds<uint64_t>, or
 MicroSeconds<uint64_t>. A zero period selects unlimited mode; an unlimited
 thread yields after every iteration. A positive period schedules absolute
 deadlines. Missed iterations are skipped, one iteration runs immediately, and
-isLate reports that at least one scheduled iteration was skipped.
+the unsigned skippedIterations value reports exactly how many scheduled
+iterations were skipped. It is zero in unlimited mode and when no deadline was
+missed.
 
 The first iteration after initialization, resume, or a delta-mode change
 receives a zero delta. IterationDeltaMode::StartToStart measures between
@@ -42,8 +44,8 @@ current statistics.
 The selected ISystemClock is non-owning and must outlive the initialized
 thread. Precision scheduling assumes that the clock progresses monotonically.
 Do not call SetTime() on the selected clock while a precision thread is
-initialized or running: rebasing can invalidate deadlines, deltas, and late
-reporting.
+initialized or running: rebasing can invalidate deadlines, deltas, and skipped
+iteration reporting.
 
 Iteration observers implement IPrecisionThreadObserver and register through
 RegisterIterationObserver(). Notifications use ESPressio-Observable's

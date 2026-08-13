@@ -8,11 +8,11 @@ class HeartbeatThread final : public Threads::PrecisionThread {
         void Iterate(
             IterationTime delta,
             IterationTime startTime,
-            bool isLate
+            Threads::SkippedIterationCount skippedIterations
         ) override {
             (void)delta;
             (void)startTime;
-            (void)isLate;
+            (void)skippedIterations;
         }
 };
 
@@ -23,12 +23,12 @@ class HeartbeatObserver final :
             Threads::PrecisionThread* thread,
             Timing::ClockTime delta,
             Timing::ClockTime startTime,
-            bool isLate
+            Threads::SkippedIterationCount skippedIterations
         ) override {
             (void)thread;
             (void)delta;
             (void)startTime;
-            (void)isLate;
+            (void)skippedIterations;
         }
 };
 
