@@ -8,10 +8,13 @@
 #include <atomic>
 #include <functional>
 #include <mutex>
+#include <memory>
 #include <string>
 
 #include "ESPressio_IThread.hpp"
+#include "ESPressio_IThreadObserver.hpp"
 #include "ESPressio_ThreadSafe.hpp"
+#include "ESPressio_ThreadSafeObservable.hpp"
 
 #ifndef ESPRESSIO_THREAD_DEFAULT_STACK_SIZE
     #define ESPRESSIO_THREAD_DEFAULT_STACK_SIZE 4000
@@ -43,6 +46,119 @@ namespace ESPressio {
         */
         class Thread : public IThread {
             private:
+                class LifecycleObservable final :
+                    public Observable::ThreadSafeObservable {
+                    public:
+                        void NotifyStateChanged(
+                            Thread* thread,
+                            ThreadState oldState,
+                            ThreadState newState
+                        ) {
+                            ExecuteNotification([&](
+                                NotificationContext& notification
+                            ) {
+                                notification.WithObservers<IThreadObserver>(
+                                    [&](IThreadObserver* observer) {
+                                        try {
+                                            observer->OnThreadStateChanged(
+                                                thread, oldState, newState
+                                            );
+                                        } catch (...) { }
+
+                                        if (thread->GetThreadState() !=
+                                            newState) {
+                                            return;
+                                        }
+
+                                        try {
+                                            switch (newState) {
+                                                case ThreadState::Uninitialized:
+                                                    observer->OnThreadUninitialized(
+                                                        thread
+                                                    );
+                                                    break;
+                                                case ThreadState::Initialized:
+                                                    observer->OnThreadInitialized(
+                                                        thread
+                                                    );
+                                                    break;
+                                                case ThreadState::Running:
+                                                    observer->OnThreadStarted(
+                                                        thread
+                                                    );
+                                                    break;
+                                                case ThreadState::Paused:
+                                                    observer->OnThreadPaused(
+                                                        thread
+                                                    );
+                                                    break;
+                                                case ThreadState::Terminating:
+                                                    observer->OnThreadTerminationRequested(
+                                                        thread
+                                                    );
+                                                    break;
+                                                case ThreadState::Terminated:
+                                                    observer->OnThreadTerminated(
+                                                        thread
+                                                    );
+                                                    break;
+                                                case ThreadState::Destroyed:
+                                                    observer->OnThreadDestroyed(
+                                                        thread
+                                                    );
+                                                    break;
+                                            }
+                                        } catch (...) { }
+                                    }
+                                );
+                            });
+                        }
+
+                        void NotifyTaskExited(Thread* thread) {
+                            _notify([&](IThreadObserver* observer) {
+                                observer->OnThreadTaskExited(thread);
+                            });
+                        }
+
+                        void NotifyInitializationFailed(
+                            Thread* thread,
+                            ThreadInitializationStatus status
+                        ) {
+                            _notify([&](IThreadObserver* observer) {
+                                observer->OnThreadInitializationFailed(
+                                    thread, status
+                                );
+                            });
+                        }
+
+                        void NotifyExecutionFailed(
+                            Thread* thread,
+                            std::exception_ptr cause
+                        ) {
+                            _notify([&](IThreadObserver* observer) {
+                                observer->OnThreadExecutionFailed(
+                                    thread, cause
+                                );
+                            });
+                        }
+
+                    private:
+                        template <typename TNotification>
+                        void _notify(TNotification notification) {
+                            ExecuteNotification([&](
+                                NotificationContext& context
+                            ) {
+                                context.WithObservers<IThreadObserver>(
+                                    [&](IThreadObserver* observer) {
+                                        try {
+                                            notification(observer);
+                                        } catch (...) { }
+                                    }
+                                );
+                            });
+                        }
+                };
+
                 enum class CleanupClaim : uint8_t {
                     Available,
                     Manual,
@@ -82,6 +198,7 @@ namespace ESPressio {
                 ReadWriteMutex<uint32_t> _stackSize = ReadWriteMutex<uint32_t>(ESPRESSIO_THREAD_DEFAULT_STACK_SIZE);
                 ReadWriteMutex<unsigned int> _priority = ReadWriteMutex<unsigned int>(2);
                 ReadWriteMutex<int> _coreID = ReadWriteMutex<int>(0);
+                std::shared_ptr<LifecycleObservable> _lifecycleObservable;
             // Callbacks
                 mutable std::mutex _callbackMutex;
                 TOnThreadEvent _onDestroy = nullptr;
@@ -150,6 +267,10 @@ namespace ESPressio {
                 void _dispatchExecutionFailed(
                     std::exception_ptr cause
                 ) noexcept {
+                    const std::exception_ptr executionFailure =
+                        std::make_exception_ptr(
+                            ThreadExecutionException(std::move(cause))
+                        );
                     try {
                         TOnThreadExecutionFailedEvent onExecutionFailed =
                             GetOnExecutionFailed();
@@ -157,17 +278,19 @@ namespace ESPressio {
                         if (onExecutionFailed != nullptr) {
                             onExecutionFailed(
                                 this,
-                                std::make_exception_ptr(
-                                    ThreadExecutionException(
-                                        std::move(cause)
-                                    )
-                                )
+                                executionFailure
                             );
                         }
                     } catch (...) {
                         // Failure reporting must not unwind through the
                         // FreeRTOS task entry point.
                     }
+
+                    try {
+                        _lifecycleObservable->NotifyExecutionFailed(
+                            this, executionFailure
+                        );
+                    } catch (...) { }
                 }
 
                 void _waitForTerminationDispatch() {
@@ -265,6 +388,14 @@ namespace ESPressio {
                             // suppress the remainder of the lifecycle.
                             callbackFailed = true;
                         }
+                    }
+
+                    try {
+                        _lifecycleObservable->NotifyStateChanged(
+                            this, oldState, newState
+                        );
+                    } catch (...) {
+                        callbackFailed = true;
                     }
 
                     if (callbackFailed &&
@@ -365,6 +496,16 @@ namespace ESPressio {
 
             // Methods
                 void GarbageCollect();
+
+                Observable::IObserverHandle* RegisterThreadObserver(
+                    IThreadObserver* observer
+                ) {
+                    return _lifecycleObservable->RegisterObserver(observer);
+                }
+
+                void UnregisterThreadObserver(IThreadObserver* observer) {
+                    _lifecycleObservable->UnregisterObserver(observer);
+                }
 
                 /// Requests termination and waits until the FreeRTOS task no
                 /// longer accesses this object. Derived destructors should call
@@ -693,6 +834,12 @@ namespace ESPressio {
                                 // initialization outcome it is reporting.
                             }
                         }
+
+                        try {
+                            _lifecycleObservable->NotifyInitializationFailed(
+                                this, status
+                            );
+                        } catch (...) { }
                     }
 
                     return status;

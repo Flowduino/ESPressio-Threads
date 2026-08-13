@@ -11,6 +11,8 @@ namespace ESPressio {
         // Define the Constructor and Destructor of `Thread` here
         Thread::Thread() : _threadID(0) {
             try {
+                _lifecycleObservable =
+                    std::make_shared<LifecycleObservable>();
                 SetCoreID(
                     ThreadManager::GetInstance()->AddThread(this, &_threadID)
                 );
@@ -81,6 +83,14 @@ namespace ESPressio {
                     onTerminated(this);
                 } catch (...) {
                     // User callbacks must not terminate the dispatcher task.
+                }
+            }
+
+            if (terminated) {
+                try {
+                    _lifecycleObservable->NotifyTaskExited(this);
+                } catch (...) {
+                    // Observer failures must not terminate the dispatcher.
                 }
             }
 

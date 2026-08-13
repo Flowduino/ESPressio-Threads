@@ -48,8 +48,8 @@ class HeartbeatObserver final :
         }
 };
 
-HeartbeatThread heartbeat;
 HeartbeatObserver heartbeatObserver;
+HeartbeatThread heartbeat;
 Observable::IObserverHandle* heartbeatObserverHandle = nullptr;
 
 void setup() {

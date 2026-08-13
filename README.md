@@ -44,7 +44,10 @@ Every type/variable/constant/etc. related to *ESPressio* Threads are located wit
 
 The namespace provides the following (*click on any declaration to navigate to more info*):
 - [`ESPressio::Threads::IThread`](#ithread)
+- `ESPressio::Threads::IThreadObserver`
 - [`ESPressio::Threads::Thread`](#thread)
+- `ESPressio::Threads::IPrecisionThreadObserver`
+- `ESPressio::Threads::PrecisionThread`
 - [`ESPressio::Threads::Manager`](#threadmanager)
 - [`ESPressio::Threads::GarbageCollector`](#garbagecollector)
 - [`ESPressio::Threads::IThreadSafe`](#ithreadsafe)
@@ -296,6 +299,145 @@ The returned collection contains the Thread ID and initialization status in mana
 
 `IThread` and its derived objects are intentionally non-copyable and non-movable. Always pass them by reference or pointer. Two C++ objects must never represent or manage the same underlying FreeRTOS task, task handle, manager registration, synchronization state, or cleanup ownership. Prefer `IThread&` when a value is required to exist and a suitably owned `IThread*` or smart pointer when optional or transferred ownership is required.
 
+## Observing Threads
+
+Every `Thread` can notify any number of Observers through ESPressio-Observable.
+This complements the existing single-callback properties: callbacks remain
+available for simple one-recipient cases, while `IThreadObserver` allows
+multiple independent objects to observe the same Thread.
+
+An Observer derives from `IThreadObserver` and overrides only the hooks it
+needs. All hooks have empty default implementations.
+
+| Observer hook | Notification |
+|---|---|
+| `OnThreadStateChanged(thread, oldState, newState)` | Every successful Thread state transition |
+| `OnThreadUninitialized(thread)` | A terminated Thread is reset for reinitialization |
+| `OnThreadInitialized(thread)` | Initialization completes and the Thread enters `Initialized` |
+| `OnThreadStarted(thread)` | The Thread enters `Running`, including resume |
+| `OnThreadPaused(thread)` | The Thread enters `Paused` |
+| `OnThreadTerminationRequested(thread)` | The Thread enters `Terminating` |
+| `OnThreadTerminated(thread)` | The Thread enters `Terminated` |
+| `OnThreadDestroyed(thread)` | Destruction changes the Thread state to `Destroyed` |
+| `OnThreadTaskExited(thread)` | The underlying FreeRTOS task has exited and termination dispatch is running |
+| `OnThreadInitializationFailed(thread, status)` | `Initialize()` returns any status other than `Success` |
+| `OnThreadExecutionFailed(thread, cause)` | An exception escapes `OnLoop()` and is wrapped as a `ThreadExecutionException` |
+
+State, initialization, and destruction notifications run synchronously in the
+context which caused them. `OnThreadExecutionFailed()` runs on the failing
+Thread's task. `OnThreadTaskExited()` runs later on the termination-dispatcher
+task and is the appropriate hook when work depends on the worker no longer
+executing `OnLoop()`.
+
+Observer exceptions are contained independently, so one Observer cannot stop
+delivery to the remaining Observers or interrupt Thread lifecycle processing.
+An Observer may re-enter Thread lifecycle operations. If a general state-change
+hook causes another transition, the stale state-specific hook for the earlier
+transition is suppressed. Existing callback APIs remain available; consumers
+should not depend on ordering between a callback and an Observer notification.
+
+ESPressio-Observable requires C++ RTTI. PlatformIO configurations which disable
+it by default must include:
+
+```ini
+build_unflags =
+    -fno-rtti
+```
+
+### Thread Observer Example
+
+The following Observer logs all state transitions, reports initialization
+failures, and receives a final notification after the FreeRTOS task exits:
+
+```cpp
+#include <ESPressio_Thread.hpp>
+#include <ESPressio_ThreadManager.hpp>
+
+using namespace ESPressio;
+
+class CountingThread final : public Threads::Thread {
+    private:
+        uint8_t _count = 0;
+
+    protected:
+        void OnLoop() override {
+            Serial.printf("iteration %u\n", ++_count);
+            if (_count == 3) {
+                Terminate();
+            }
+            vTaskDelay(pdMS_TO_TICKS(250));
+        }
+};
+
+class ThreadLifecycleLogger final : public Threads::IThreadObserver {
+    public:
+        void OnThreadStateChanged(
+            Threads::IThread* thread,
+            Threads::ThreadState oldState,
+            Threads::ThreadState newState
+        ) override {
+            Serial.printf(
+                "thread %u state %u -> %u\n",
+                thread->GetThreadID(),
+                static_cast<unsigned int>(oldState),
+                static_cast<unsigned int>(newState)
+            );
+        }
+
+        void OnThreadInitializationFailed(
+            Threads::IThread* thread,
+            Threads::ThreadInitializationStatus status
+        ) override {
+            Serial.printf(
+                "thread %u initialization failed: %u\n",
+                thread->GetThreadID(),
+                static_cast<unsigned int>(status)
+            );
+        }
+
+        void OnThreadTaskExited(Threads::IThread* thread) override {
+            Serial.printf(
+                "thread %u FreeRTOS task exited\n",
+                thread->GetThreadID()
+            );
+        }
+};
+
+ThreadLifecycleLogger lifecycleLogger;
+CountingThread countingThread;
+Observable::IObserverHandle* lifecycleObserverHandle = nullptr;
+
+void setup() {
+    Serial.begin(115200);
+    lifecycleObserverHandle = countingThread.RegisterThreadObserver(
+        &lifecycleLogger
+    );
+    Threads::ThreadManager::GetInstance()->Initialize();
+}
+
+void loop() {
+    delay(1000);
+}
+```
+
+`RegisterThreadObserver()` returns an ESPressio-Observable registration handle.
+The Thread stores a non-owning Observer pointer: the Observer must remain alive
+until its handle has been unregistered or destroyed. Registration,
+unregistration, notification, and destruction are synchronized. The Thread
+owns its internal Observable channel, so stack allocation and
+`FreeOnTerminate` retain their existing behavior and do not require the Thread
+itself to be managed by `std::shared_ptr`.
+
+When both objects have automatic or global storage, construct the Observer
+before the Thread so the Thread is destroyed first. `OnThreadDestroyed()` runs
+during the `Thread` base destructor; it must not delete its sender, retain the
+sender pointer, or access state belonging to an already-destroyed descendant.
+
+`PrecisionThread` inherits all `Thread` lifecycle notifications. An Observer
+may implement both `IThreadObserver` and `IPrecisionThreadObserver`, then
+register separately through `RegisterThreadObserver()` for lifecycle events
+and `RegisterIterationObserver()` for iteration events.
+
 ## Precision Threads
 
 PrecisionThread is a high-resolution periodic Thread driven by an
@@ -335,14 +477,6 @@ thread-safe dispatch and run after Iterate() in the precision thread's task
 context. Observer work therefore contributes to the time before the next
 iteration and should remain short. The observable channel is owned internally,
 so normal Thread allocation and FreeOnTerminate behavior remain available.
-
-ESPressio-Observable requires C++ RTTI. PlatformIO configurations which disable
-it by default must include:
-
-```ini
-build_unflags =
-    -fno-rtti
-```
 
 ### Precision Thread Example
 
@@ -403,8 +537,8 @@ class HeartbeatObserver final :
         }
 };
 
-HeartbeatThread heartbeat;
 HeartbeatObserver heartbeatObserver;
+HeartbeatThread heartbeat;
 Observable::IObserverHandle* heartbeatObserverHandle = nullptr;
 
 void setup() {
