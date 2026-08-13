@@ -14,6 +14,52 @@ The implementation directly uses ESP-IDF FreeRTOS task, queue, semaphore, and ta
 
 Compatibility is source-derived; each device should be verified against the specific Arduino-ESP32 or ESP-IDF version used by the application.
 
+## Precision Threads
+
+PrecisionThread is a high-resolution periodic Thread driven by an
+ESPressio-Timing ISystemClock. Pass an injected clock to its constructor, or
+pass nothing to use the shared SystemClock. Derive from it and implement
+Iterate(delta, startTime, isLate).
+
+The iteration period is an unsigned integral ESPressio Time value, so callers
+can use units such as Seconds<uint64_t>, MilliSeconds<uint64_t>, or
+MicroSeconds<uint64_t>. A zero period selects unlimited mode; an unlimited
+thread yields after every iteration. A positive period schedules absolute
+deadlines. Missed iterations are skipped, one iteration runs immediately, and
+isLate reports that at least one scheduled iteration was skipped.
+
+The first iteration after initialization, resume, or a delta-mode change
+receives a zero delta. IterationDeltaMode::StartToStart measures between
+consecutive iteration starts and is the default.
+IterationDeltaMode::EndToStart measures from the previous iteration's
+completion to the next start.
+
+Performance statistics always use start-to-start samples.
+IterationSampleCount is the number of recent iteration delta samples used by
+the rolling frequency calculation. Zero disables sampling and clears the
+current statistics.
+
+The selected ISystemClock is non-owning and must outlive the initialized
+thread. Precision scheduling assumes that the clock progresses monotonically.
+Do not call SetTime() on the selected clock while a precision thread is
+initialized or running: rebasing can invalidate deadlines, deltas, and late
+reporting.
+
+Iteration observers implement IPrecisionThreadObserver and register through
+RegisterIterationObserver(). Notifications use ESPressio-Observable's
+thread-safe dispatch and run after Iterate() in the precision thread's task
+context. Observer work therefore contributes to the time before the next
+iteration and should remain short. The observable channel is owned internally,
+so normal Thread allocation and FreeOnTerminate behavior remain available.
+
+ESPressio-Observable requires C++ RTTI. PlatformIO configurations which disable
+it by default must include:
+
+```ini
+build_unflags =
+    -fno-rtti
+```
+
 ## ESPressio Development Platform
 The **ESPressio** Development Platform is a collection of discrete (sometimes intra-connected) Component Libraries developed with a particular development ethos in mind.
 

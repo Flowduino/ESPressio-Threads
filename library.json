@@ -20,5 +20,15 @@
         "espressif32"
     ],
     "dependencies": [
+        {
+            "name": "Flowduino ESPressio-Timing",
+            "version": ">=1.1.0",
+            "url": "https://github.com/Flowduino/ESPressio-Timing.git"
+        },
+        {
+            "name": "Flowduino ESPressio-Observable",
+            "version": ">=2.0.0",
+            "url": "https://github.com/Flowduino/ESPressio-Observable.git"
+        }
     ]
 }
