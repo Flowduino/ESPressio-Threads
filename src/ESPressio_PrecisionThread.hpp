@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <deque>
 #include <limits>
@@ -81,6 +82,7 @@ namespace ESPressio {
                 uint64_t _nextIterationNanoseconds = 0;
                 uint64_t _activeIterationStartNanoseconds = 0;
                 uint64_t _measurementGeneration = 0;
+                std::atomic<bool> _workWakeRequested{false};
 
                 static uint64_t _addSaturated(uint64_t left, uint64_t right) {
                     const uint64_t maximum =
@@ -181,6 +183,13 @@ namespace ESPressio {
                 }
 
             protected:
+                virtual void OnWorkWake() { }
+
+                void WakeForWork() {
+                    _workWakeRequested.store(true);
+                    _signalScheduler();
+                }
+
                 virtual void Iterate(
                     IterationTime delta,
                     IterationTime startTime,
@@ -188,6 +197,11 @@ namespace ESPressio {
                 ) = 0;
 
                 void OnLoop() final override {
+                    if (_workWakeRequested.exchange(false)) {
+                        OnWorkWake();
+                        return;
+                    }
+
                     const uint64_t now = _getNowNanoseconds();
                     uint64_t period = 0;
                     uint64_t deltaNanoseconds = 0;

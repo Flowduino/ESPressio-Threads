@@ -4,7 +4,7 @@ Threading Components of the Flowduino ESPressio Development Platform.
 Light-weight and easy-to-use Threading for your Microcontroller development work.
 
 ## Latest Stable Version
-The latest Stable Version is [1.4.0](https://github.com/Flowduino/ESPressio-Threads/releases/tag/1.4.0).
+The latest Stable Version is [1.4.1](https://github.com/Flowduino/ESPressio-Threads/releases/tag/1.4.1).
 
 ## Compatibility
 
@@ -59,7 +59,7 @@ You can quickly and easily add this library to your project in PlatformIO by sim
 
 ```ini
 lib_deps =
-    flowduino/ESPressio-Threads@^1.4.0
+    flowduino/ESPressio-Threads@^1.4.1
 ```
 
 Alternatively, if you want to use the bleeding-edge (effectively "Developer Integration Testing" or "DIT") sources, you can instead use:
@@ -444,6 +444,13 @@ PrecisionThread is a high-resolution periodic Thread driven by an
 ESPressio-Timing ISystemClock. Pass an injected clock to its constructor, or
 pass nothing to use the shared SystemClock. Derive from it and implement
 Iterate(delta, startTime, skippedIterations).
+
+Derived precision-thread types can use the protected `WakeForWork()` operation
+to interrupt a scheduled wait for non-iteration work. The corresponding
+`OnWorkWake()` hook executes on the Thread's own task without invoking
+`Iterate()`, changing the next scheduled deadline, recording an iteration
+sample, or notifying iteration Observers. Repeated wake requests may be
+coalesced, so the hook should drain all currently pending work.
 
 The iteration period is an unsigned integral ESPressio Time value, so callers
 can use units such as Seconds<uint64_t>, MilliSeconds<uint64_t>, or
