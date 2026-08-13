@@ -14,54 +14,6 @@ The implementation directly uses ESP-IDF FreeRTOS task, queue, semaphore, and ta
 
 Compatibility is source-derived; each device should be verified against the specific Arduino-ESP32 or ESP-IDF version used by the application.
 
-## Precision Threads
-
-PrecisionThread is a high-resolution periodic Thread driven by an
-ESPressio-Timing ISystemClock. Pass an injected clock to its constructor, or
-pass nothing to use the shared SystemClock. Derive from it and implement
-Iterate(delta, startTime, skippedIterations).
-
-The iteration period is an unsigned integral ESPressio Time value, so callers
-can use units such as Seconds<uint64_t>, MilliSeconds<uint64_t>, or
-MicroSeconds<uint64_t>. A zero period selects unlimited mode; an unlimited
-thread yields after every iteration. A positive period schedules absolute
-deadlines. Missed iterations are skipped, one iteration runs immediately, and
-the unsigned skippedIterations value reports exactly how many scheduled
-iterations were skipped. It is zero in unlimited mode and when no deadline was
-missed.
-
-The first iteration after initialization, resume, or a delta-mode change
-receives a zero delta. IterationDeltaMode::StartToStart measures between
-consecutive iteration starts and is the default.
-IterationDeltaMode::EndToStart measures from the previous iteration's
-completion to the next start.
-
-Performance statistics always use start-to-start samples.
-IterationSampleCount is the number of recent iteration delta samples used by
-the rolling frequency calculation. Zero disables sampling and clears the
-current statistics.
-
-The selected ISystemClock is non-owning and must outlive the initialized
-thread. Precision scheduling assumes that the clock progresses monotonically.
-Do not call SetTime() on the selected clock while a precision thread is
-initialized or running: rebasing can invalidate deadlines, deltas, and skipped
-iteration reporting.
-
-Iteration observers implement IPrecisionThreadObserver and register through
-RegisterIterationObserver(). Notifications use ESPressio-Observable's
-thread-safe dispatch and run after Iterate() in the precision thread's task
-context. Observer work therefore contributes to the time before the next
-iteration and should remain short. The observable channel is owned internally,
-so normal Thread allocation and FreeOnTerminate behavior remain available.
-
-ESPressio-Observable requires C++ RTTI. PlatformIO configurations which disable
-it by default must include:
-
-```ini
-build_unflags =
-    -fno-rtti
-```
-
 ## ESPressio Development Platform
 The **ESPressio** Development Platform is a collection of discrete (sometimes intra-connected) Component Libraries developed with a particular development ethos in mind.
 
@@ -343,6 +295,157 @@ for (const ThreadInitializationResult& result :
 The returned collection contains the Thread ID and initialization status in manager iteration order. It intentionally contains no Thread pointers whose lifetime could end after manager initialization. If a custom `IThread` implementation unexpectedly throws from `Initialize()`, its result is reported as `InitializationException` and the manager continues initializing the remaining Threads.
 
 `IThread` and its derived objects are intentionally non-copyable and non-movable. Always pass them by reference or pointer. Two C++ objects must never represent or manage the same underlying FreeRTOS task, task handle, manager registration, synchronization state, or cleanup ownership. Prefer `IThread&` when a value is required to exist and a suitably owned `IThread*` or smart pointer when optional or transferred ownership is required.
+
+## Precision Threads
+
+PrecisionThread is a high-resolution periodic Thread driven by an
+ESPressio-Timing ISystemClock. Pass an injected clock to its constructor, or
+pass nothing to use the shared SystemClock. Derive from it and implement
+Iterate(delta, startTime, skippedIterations).
+
+The iteration period is an unsigned integral ESPressio Time value, so callers
+can use units such as Seconds<uint64_t>, MilliSeconds<uint64_t>, or
+MicroSeconds<uint64_t>. A zero period selects unlimited mode; an unlimited
+thread yields after every iteration. A positive period schedules absolute
+deadlines. Missed iterations are skipped, one iteration runs immediately, and
+the unsigned skippedIterations value reports exactly how many scheduled
+iterations were skipped. It is zero in unlimited mode and when no deadline was
+missed.
+
+The first iteration after initialization, resume, or a delta-mode change
+receives a zero delta. IterationDeltaMode::StartToStart measures between
+consecutive iteration starts and is the default.
+IterationDeltaMode::EndToStart measures from the previous iteration's
+completion to the next start.
+
+Performance statistics always use start-to-start samples.
+IterationSampleCount is the number of recent iteration delta samples used by
+the rolling frequency calculation. Zero disables sampling and clears the
+current statistics.
+
+The selected ISystemClock is non-owning and must outlive the initialized
+thread. Precision scheduling assumes that the clock progresses monotonically.
+Do not call SetTime() on the selected clock while a precision thread is
+initialized or running: rebasing can invalidate deadlines, deltas, and skipped
+iteration reporting.
+
+Iteration observers implement IPrecisionThreadObserver and register through
+RegisterIterationObserver(). Notifications use ESPressio-Observable's
+thread-safe dispatch and run after Iterate() in the precision thread's task
+context. Observer work therefore contributes to the time before the next
+iteration and should remain short. The observable channel is owned internally,
+so normal Thread allocation and FreeOnTerminate behavior remain available.
+
+ESPressio-Observable requires C++ RTTI. PlatformIO configurations which disable
+it by default must include:
+
+```ini
+build_unflags =
+    -fno-rtti
+```
+
+### Precision Thread Example
+
+The following Arduino example toggles GPIO 2 once every 500 milliseconds and
+uses an Observer to report the measured delta and any skipped iterations.
+Change HeartbeatPin to an output suitable for the selected board. The default
+SystemClock is used because no clock is injected into the HeartbeatThread
+constructor.
+
+```cpp
+#include <ESPressio_PrecisionThread.hpp>
+#include <ESPressio_ThreadManager.hpp>
+
+using namespace ESPressio;
+
+constexpr uint8_t HeartbeatPin = 2;
+
+class HeartbeatThread final : public Threads::PrecisionThread {
+    private:
+        bool _ledState = false;
+
+    protected:
+        void Iterate(
+            IterationTime delta,
+            IterationTime startTime,
+            Threads::SkippedIterationCount skippedIterations
+        ) override {
+            (void)delta;
+            (void)startTime;
+            (void)skippedIterations;
+
+            _ledState = !_ledState;
+            digitalWrite(HeartbeatPin, _ledState ? HIGH : LOW);
+        }
+};
+
+class HeartbeatObserver final :
+    public Threads::IPrecisionThreadObserver {
+    public:
+        void OnPrecisionThreadIteration(
+            Threads::PrecisionThread* thread,
+            Timing::ClockTime delta,
+            Timing::ClockTime startTime,
+            Threads::SkippedIterationCount skippedIterations
+        ) override {
+            (void)thread;
+
+            Serial.printf(
+                "iteration at %llu ms; delta=%llu us; skipped=%llu\n",
+                static_cast<unsigned long long>(
+                    startTime.ToMagnitude<uint64_t>(Units::Milli)
+                ),
+                static_cast<unsigned long long>(
+                    delta.ToMagnitude<uint64_t>(Units::Micro)
+                ),
+                static_cast<unsigned long long>(skippedIterations)
+            );
+        }
+};
+
+HeartbeatThread heartbeat;
+HeartbeatObserver heartbeatObserver;
+Observable::IObserverHandle* heartbeatObserverHandle = nullptr;
+
+void setup() {
+    Serial.begin(115200);
+    pinMode(HeartbeatPin, OUTPUT);
+
+    heartbeat.SetIterationPeriod(
+        Units::MilliSeconds<uint64_t>(500)
+    );
+    heartbeat.SetIterationDeltaMode(
+        Threads::IterationDeltaMode::StartToStart
+    );
+    heartbeat.SetIterationSampleCount(10);
+
+    heartbeatObserverHandle = heartbeat.RegisterIterationObserver(
+        &heartbeatObserver
+    );
+
+    Threads::ThreadManager::GetInstance()->Initialize();
+}
+
+void loop() {
+    const double currentFrequency =
+        heartbeat.GetIterationFrequency().value;
+    const double averageFrequency =
+        heartbeat.GetAverageIterationFrequency().value;
+
+    // Pause and resume when required:
+    // heartbeat.Pause();
+    // heartbeat.Start();
+
+    (void)currentFrequency;
+    (void)averageFrequency;
+    delay(1000);
+}
+```
+
+Observer notifications run in the Precision Thread's task context. Keep them
+short; lengthy notification work can cause later iteration deadlines to be
+missed. The first iteration receives a zero delta because no previous
+iteration exists.
 
 ### The Thread Manager
 In the previous example, you'll see that we manually called `Initialize()` on each instance of `MyFirstThread`.

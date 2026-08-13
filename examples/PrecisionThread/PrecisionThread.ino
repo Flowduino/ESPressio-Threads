@@ -3,7 +3,12 @@
 
 using namespace ESPressio;
 
+constexpr uint8_t HeartbeatPin = 2;
+
 class HeartbeatThread final : public Threads::PrecisionThread {
+    private:
+        bool _ledState = false;
+
     protected:
         void Iterate(
             IterationTime delta,
@@ -13,6 +18,9 @@ class HeartbeatThread final : public Threads::PrecisionThread {
             (void)delta;
             (void)startTime;
             (void)skippedIterations;
+
+            _ledState = !_ledState;
+            digitalWrite(HeartbeatPin, _ledState ? HIGH : LOW);
         }
 };
 
@@ -26,9 +34,17 @@ class HeartbeatObserver final :
             Threads::SkippedIterationCount skippedIterations
         ) override {
             (void)thread;
-            (void)delta;
-            (void)startTime;
-            (void)skippedIterations;
+
+            Serial.printf(
+                "iteration at %llu ms; delta=%llu us; skipped=%llu\n",
+                static_cast<unsigned long long>(
+                    startTime.ToMagnitude<uint64_t>(Units::Milli)
+                ),
+                static_cast<unsigned long long>(
+                    delta.ToMagnitude<uint64_t>(Units::Micro)
+                ),
+                static_cast<unsigned long long>(skippedIterations)
+            );
         }
 };
 
@@ -37,8 +53,14 @@ HeartbeatObserver heartbeatObserver;
 Observable::IObserverHandle* heartbeatObserverHandle = nullptr;
 
 void setup() {
+    Serial.begin(115200);
+    pinMode(HeartbeatPin, OUTPUT);
+
     heartbeat.SetIterationPeriod(
-        Units::MilliSeconds<uint64_t>(10)
+        Units::MilliSeconds<uint64_t>(500)
+    );
+    heartbeat.SetIterationDeltaMode(
+        Threads::IterationDeltaMode::StartToStart
     );
     heartbeat.SetIterationSampleCount(10);
     heartbeatObserverHandle = heartbeat.RegisterIterationObserver(
@@ -48,5 +70,12 @@ void setup() {
 }
 
 void loop() {
+    const double currentFrequency =
+        heartbeat.GetIterationFrequency().value;
+    const double averageFrequency =
+        heartbeat.GetAverageIterationFrequency().value;
+
+    (void)currentFrequency;
+    (void)averageFrequency;
     delay(1000);
 }
