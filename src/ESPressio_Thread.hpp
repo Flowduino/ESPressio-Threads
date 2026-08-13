@@ -497,7 +497,7 @@ namespace ESPressio {
             // Methods
                 void GarbageCollect();
 
-                Observable::IObserverHandle* RegisterThreadObserver(
+                Observable::ObserverHandlePtr RegisterThreadObserver(
                     IThreadObserver* observer
                 ) {
                     return _lifecycleObservable->RegisterObserver(observer);

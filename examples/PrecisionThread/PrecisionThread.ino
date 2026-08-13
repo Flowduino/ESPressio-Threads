@@ -50,7 +50,7 @@ class HeartbeatObserver final :
 
 HeartbeatObserver heartbeatObserver;
 HeartbeatThread heartbeat;
-Observable::IObserverHandle* heartbeatObserverHandle = nullptr;
+Observable::ObserverHandlePtr heartbeatObserverHandle;
 
 void setup() {
     Serial.begin(115200);

@@ -359,7 +359,7 @@ namespace ESPressio {
                     _signalScheduler();
                 }
 
-                Observable::IObserverHandle* RegisterIterationObserver(
+                Observable::ObserverHandlePtr RegisterIterationObserver(
                     IPrecisionThreadObserver* observer
                 ) {
                     return _iterationObservable->RegisterObserver(observer);
@@ -470,7 +470,7 @@ namespace ESPressio {
                 void SetIterationSampleCount(uint32_t sampleCount) {
                     std::lock_guard<std::mutex> lock(_timingMutex);
                     _iterationSampleCount = sampleCount;
-                    _iterationSamples.clear();
+                    std::deque<uint64_t>().swap(_iterationSamples);
                     _iterationFrequency = 0.0;
                     _averageIterationFrequency = 0.0;
                 }

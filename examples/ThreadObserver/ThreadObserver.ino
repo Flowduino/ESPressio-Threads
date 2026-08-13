@@ -53,7 +53,7 @@ class ThreadLifecycleLogger final : public Threads::IThreadObserver {
 
 ThreadLifecycleLogger lifecycleLogger;
 CountingThread countingThread;
-Observable::IObserverHandle* lifecycleObserverHandle = nullptr;
+Observable::ObserverHandlePtr lifecycleObserverHandle;
 
 void setup() {
     Serial.begin(115200);

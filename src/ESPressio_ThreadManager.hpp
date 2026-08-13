@@ -113,6 +113,9 @@ namespace ESPressio {
             public:
                 /// Returns a Pointer to the Singleton Instance of `ThreadManager`.
                 static ThreadManager* GetInstance() {
+                    // Intentionally process-lifetime: destroying the manager
+                    // during static teardown could race static Thread objects
+                    // and already-stopped FreeRTOS infrastructure.
                     static ThreadManager* instance = new ThreadManager();
                     return instance;
                 }

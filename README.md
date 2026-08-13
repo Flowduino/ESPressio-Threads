@@ -4,7 +4,7 @@ Threading Components of the Flowduino ESPressio Development Platform.
 Light-weight and easy-to-use Threading for your Microcontroller development work.
 
 ## Latest Stable Version
-The latest Stable Version is [1.4.1](https://github.com/Flowduino/ESPressio-Threads/releases/tag/1.4.1).
+The latest Stable Version is [2.0.0](https://github.com/Flowduino/ESPressio-Threads/releases/tag/2.0.0).
 
 ## Compatibility
 
@@ -59,7 +59,7 @@ You can quickly and easily add this library to your project in PlatformIO by sim
 
 ```ini
 lib_deps =
-    flowduino/ESPressio-Threads@^1.4.1
+    flowduino/ESPressio-Threads@^2.0.0
 ```
 
 Alternatively, if you want to use the bleeding-edge (effectively "Developer Integration Testing" or "DIT") sources, you can instead use:
@@ -299,6 +299,12 @@ The returned collection contains the Thread ID and initialization status in mana
 
 `IThread` and its derived objects are intentionally non-copyable and non-movable. Always pass them by reference or pointer. Two C++ objects must never represent or manage the same underlying FreeRTOS task, task handle, manager registration, synchronization state, or cleanup ownership. Prefer `IThread&` when a value is required to exist and a suitably owned `IThread*` or smart pointer when optional or transferred ownership is required.
 
+`ThreadManager`, the termination dispatcher, and the garbage collector are
+process-lifetime FreeRTOS infrastructure. They intentionally retain their
+queues, tasks, and synchronization resources until device shutdown; they do
+not allocate once per managed Thread and must not be interpreted as recurring
+application leaks.
+
 ## Observing Threads
 
 Every `Thread` can notify any number of Observers through ESPressio-Observable.
@@ -405,7 +411,7 @@ class ThreadLifecycleLogger final : public Threads::IThreadObserver {
 
 ThreadLifecycleLogger lifecycleLogger;
 CountingThread countingThread;
-Observable::IObserverHandle* lifecycleObserverHandle = nullptr;
+Observable::ObserverHandlePtr lifecycleObserverHandle;
 
 void setup() {
     Serial.begin(115200);
@@ -546,7 +552,7 @@ class HeartbeatObserver final :
 
 HeartbeatObserver heartbeatObserver;
 HeartbeatThread heartbeat;
-Observable::IObserverHandle* heartbeatObserverHandle = nullptr;
+Observable::ObserverHandlePtr heartbeatObserverHandle;
 
 void setup() {
     Serial.begin(115200);
