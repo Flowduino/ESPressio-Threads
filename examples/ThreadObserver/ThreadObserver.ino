@@ -3,21 +3,32 @@
 
 using namespace ESPressio;
 
-class CountingThread final : public Threads::Thread {
+class CountingThread final :
+    public Threads::Thread {
+
     private:
         uint8_t _count = 0;
 
     protected:
         void OnLoop() override {
-            Serial.printf("iteration %u\n", ++_count);
+            Serial.printf(
+                "iteration %u\n",
+                ++_count
+            );
+
             if (_count == 3) {
                 Terminate();
             }
-            vTaskDelay(pdMS_TO_TICKS(250));
+
+            vTaskDelay(
+                pdMS_TO_TICKS(250)
+            );
         }
 };
 
-class ThreadLifecycleLogger final : public Threads::IThreadObserver {
+class ThreadLifecycleLogger final :
+    public Threads::IThreadObserver {
+
     public:
         void OnThreadStateChanged(
             Threads::IThread* thread,
@@ -27,8 +38,12 @@ class ThreadLifecycleLogger final : public Threads::IThreadObserver {
             Serial.printf(
                 "thread %u state %u -> %u\n",
                 thread->GetThreadID(),
-                static_cast<unsigned int>(oldState),
-                static_cast<unsigned int>(newState)
+                static_cast<unsigned int>(
+                    oldState
+                ),
+                static_cast<unsigned int>(
+                    newState
+                )
             );
         }
 
@@ -39,11 +54,15 @@ class ThreadLifecycleLogger final : public Threads::IThreadObserver {
             Serial.printf(
                 "thread %u initialization failed: %u\n",
                 thread->GetThreadID(),
-                static_cast<unsigned int>(status)
+                static_cast<unsigned int>(
+                    status
+                )
             );
         }
 
-        void OnThreadTaskExited(Threads::IThread* thread) override {
+        void OnThreadTaskExited(
+            Threads::IThread* thread
+        ) override {
             Serial.printf(
                 "thread %u FreeRTOS task exited\n",
                 thread->GetThreadID()
@@ -53,14 +72,22 @@ class ThreadLifecycleLogger final : public Threads::IThreadObserver {
 
 ThreadLifecycleLogger lifecycleLogger;
 CountingThread countingThread;
-Observable::ObserverHandlePtr lifecycleObserverHandle;
+
+Observable::ObserverHandlePtr
+    lifecycleObserverHandle;
 
 void setup() {
     Serial.begin(115200);
-    lifecycleObserverHandle = countingThread.RegisterThreadObserver(
-        &lifecycleLogger
-    );
-    Threads::ThreadManager::GetInstance()->Initialize();
+
+    lifecycleObserverHandle =
+        countingThread.
+            RegisterThreadObserver(
+                &lifecycleLogger
+            );
+
+    Threads::ThreadManager::
+        GetInstance()->
+        Initialize();
 }
 
 void loop() {

@@ -1,13 +1,11 @@
 #include "ESPressio_Thread.hpp"
 #include "ESPressio_ThreadManager.hpp"
-
 #include "ESPressio_ThreadGarbageCollector.hpp"
 #include "ESPressio_ThreadTerminationDispatcher.hpp"
 
 namespace ESPressio {
 
     namespace Threads {
-
         // Define the Constructor and Destructor of `Thread` here
         Thread::Thread() : _threadID(0) {
             try {
@@ -19,7 +17,6 @@ namespace ESPressio {
             } catch (...) {
                 const std::exception_ptr constructionFailure =
                     std::current_exception();
-
                 try {
                     ThreadManager::GetInstance()->RemoveThread(this);
                 } catch (...) {
@@ -34,7 +31,6 @@ namespace ESPressio {
                 std::rethrow_exception(constructionFailure);
             }
         }
-
         Thread::~Thread() {
             SetFreeOnTerminate(false);
             _waitForTerminationDispatch();
@@ -55,7 +51,6 @@ namespace ESPressio {
             }
             ThreadManager::GetInstance()->RemoveThread(this);
         }
-
         void Thread::_requestGarbageCollection() {
             ThreadGarbageCollector::GetInstance()->CleanUp();
         }
@@ -67,7 +62,6 @@ namespace ESPressio {
         bool Thread::_isCurrentTerminationDispatcherTask() {
             return ThreadTerminationDispatcher::GetInstance()->IsCurrentTask();
         }
-
         bool Thread::_queueTerminationDispatch(Thread* thread) {
             return ThreadTerminationDispatcher::GetInstance()->Dispatch(thread);
         }
@@ -77,7 +71,6 @@ namespace ESPressio {
                 GetThreadState() == ThreadState::Terminated;
             const SemaphoreHandle_t taskExited = _taskExited;
             TOnThreadEvent onTerminated = GetOnTerminated();
-
             if (terminated && onTerminated != nullptr) {
                 try {
                     onTerminated(this);
@@ -85,7 +78,6 @@ namespace ESPressio {
                     // User callbacks must not terminate the dispatcher task.
                 }
             }
-
             if (terminated) {
                 try {
                     _lifecycleObservable->NotifyTaskExited(this);
@@ -100,10 +92,8 @@ namespace ESPressio {
             if (taskExited != nullptr) {
                 xSemaphoreGive(taskExited);
             }
-
             // This is the dispatcher's final access to the Thread object.
             _terminationDispatchPending.store(false, std::memory_order_release);
-
             if (requestGarbageCollection) {
                 try {
                     _requestGarbageCollection();
@@ -114,7 +104,6 @@ namespace ESPressio {
                 }
             }
         }
-
         void Thread::GarbageCollect() {
             if (GetFreeOnTerminate()) {
                 _requestGarbageCollection();

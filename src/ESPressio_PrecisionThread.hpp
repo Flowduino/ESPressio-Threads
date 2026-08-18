@@ -15,6 +15,7 @@
 
 #include "ESPressio_Frequency.hpp"
 #include "ESPressio_IPrecisionThreadObserver.hpp"
+#include "ESPressio_PrecisionThreadTraits.hpp"
 #include "ESPressio_ISystemClock.hpp"
 #include "ESPressio_SystemClock.hpp"
 #include "ESPressio_TimeTraits.hpp"
@@ -51,28 +52,37 @@ namespace ESPressio {
          * ESPressio Serializable.
          */
         template<
-            typename TTime
+            typename TTime,
+            typename TRepresentationTraits
         >
         class PrecisionThread : public Thread {
             public:
-                using IterationTime = TTime;
-                using TimeType = TTime;
-                using ClockType = Timing::ISystemClock<TTime>;
-                using IterationFrequency = Units::Frequency<double>;
+                using RepresentationTraits =
+                    TRepresentationTraits;
 
-                /*
-                 * Available iteration budget can become negative, so it
-                 * remains an explicitly signed nanosecond Unit.
-                 */
+                using IterationTime = TTime;
+
+                using TimeType = IterationTime;
+
+                using ClockType =
+                    Timing::ISystemClock<
+                        IterationTime
+                    >;
+
+                using IterationFrequency =
+                    typename RepresentationTraits::
+                        IterationFrequency;
+
                 using SignedIterationTime =
-                    Units::Time<int64_t, Units::Nano>;
+                    typename RepresentationTraits::
+                        SignedIterationTime;
 
             private:
                 class IterationObservable final :
                     public Observable::ThreadSafeObservable {
                     public:
                         void Notify(
-                            PrecisionThread<TTime>* thread,
+                            PrecisionThread<TTime, TRepresentationTraits>* thread,
                             IterationTime delta,
                             IterationTime startTime,
                             SkippedIterationCount skippedIterations
@@ -81,9 +91,9 @@ namespace ESPressio {
                                 NotificationContext& notification
                             ) {
                                 notification.WithObservers<
-                                    IPrecisionThreadObserver<TTime>
+                                    IPrecisionThreadObserver<TTime, TRepresentationTraits>
                                 >([&](
-                                    IPrecisionThreadObserver<TTime>* observer
+                                    IPrecisionThreadObserver<TTime, TRepresentationTraits>* observer
                                 ) {
                                     observer->OnPrecisionThreadIteration(
                                         thread,
@@ -539,7 +549,7 @@ namespace ESPressio {
                     _clock(
                         clock == nullptr
                             ? &Timing::SystemClock<
-                                TTime
+                                IterationTime
                               >::GetInstance()
                             : clock
                     ) {
@@ -556,7 +566,7 @@ namespace ESPressio {
                     _clock(
                         clock == nullptr
                             ? &Timing::SystemClock<
-                                TTime
+                                IterationTime
                               >::GetInstance()
                             : clock
                     ) {
@@ -640,7 +650,8 @@ namespace ESPressio {
                 Observable::ObserverHandlePtr
                 RegisterIterationObserver(
                     IPrecisionThreadObserver<
-                        TTime
+                        TTime,
+                        TRepresentationTraits
                     >* observer
                 ) {
                     return
@@ -653,7 +664,8 @@ namespace ESPressio {
 
                 void UnregisterIterationObserver(
                     IPrecisionThreadObserver<
-                        TTime
+                        TTime,
+                        TRepresentationTraits
                     >* observer
                 ) {
                     _iterationObservable->
@@ -894,9 +906,10 @@ namespace ESPressio {
                         lock(_timingMutex);
 
                     return
-                        IterationFrequency(
-                            _iterationFrequency
-                        );
+                        RepresentationTraits::
+                            CreateIterationFrequency(
+                                _iterationFrequency
+                            );
                 }
 
 
@@ -906,9 +919,10 @@ namespace ESPressio {
                         lock(_timingMutex);
 
                     return
-                        IterationFrequency(
-                            _averageIterationFrequency
-                        );
+                        RepresentationTraits::
+                            CreateIterationFrequency(
+                                _averageIterationFrequency
+                            );
                 }
 
 
@@ -926,10 +940,7 @@ namespace ESPressio {
                         _activeIterationStartNanoseconds ==
                             0
                     ) {
-                        return
-                            SignedIterationTime(
-                                0
-                            );
+                        return RepresentationTraits::CreateSignedIterationTime(0);
                     }
 
                     const uint64_t deadline =
@@ -943,8 +954,30 @@ namespace ESPressio {
                             deadline - now;
 
                         return
-                            SignedIterationTime(
-                                remaining >
+                            RepresentationTraits::
+                                CreateSignedIterationTime(
+                                    remaining >
+                                        static_cast<uint64_t>(
+                                            std::numeric_limits<
+                                                int64_t
+                                            >::max()
+                                        )
+                                        ? std::numeric_limits<
+                                            int64_t
+                                          >::max()
+                                        : static_cast<int64_t>(
+                                            remaining
+                                          )
+                                );
+                    }
+
+                    const uint64_t overrun =
+                        now - deadline;
+
+                    return
+                        RepresentationTraits::
+                            CreateSignedIterationTime(
+                                overrun >
                                     static_cast<uint64_t>(
                                         std::numeric_limits<
                                             int64_t
@@ -952,31 +985,11 @@ namespace ESPressio {
                                     )
                                     ? std::numeric_limits<
                                         int64_t
-                                      >::max()
-                                    : static_cast<int64_t>(
-                                        remaining
+                                      >::min()
+                                    : -static_cast<int64_t>(
+                                        overrun
                                       )
                             );
-                    }
-
-                    const uint64_t overrun =
-                        now - deadline;
-
-                    return
-                        SignedIterationTime(
-                            overrun >
-                                static_cast<uint64_t>(
-                                    std::numeric_limits<
-                                        int64_t
-                                    >::max()
-                                )
-                                ? std::numeric_limits<
-                                    int64_t
-                                  >::min()
-                                : -static_cast<int64_t>(
-                                    overrun
-                                  )
-                        );
                 }
         };
 

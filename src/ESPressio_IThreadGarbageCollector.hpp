@@ -5,7 +5,7 @@ namespace ESPressio {
     namespace Threads {
 
         class IThreadGarbageCollector {
-            public:             
+            public:
                 virtual ~IThreadGarbageCollector() = default;
                 virtual void CleanUp() = 0;
         };

@@ -12,7 +12,6 @@
 #ifndef ESPRESSIO_THREAD_GARBAGE_COLLECTOR_STACK_SIZE
     #define ESPRESSIO_THREAD_GARBAGE_COLLECTOR_STACK_SIZE 2000 // You are encouraged to determine the appropriate stack size for your application, and define it in your platformio.ini file.
 #endif
-
 #ifndef ESPRESSIO_THREAD_GARBAGE_COLLECTOR_PRIORITY
     #define ESPRESSIO_THREAD_GARBAGE_COLLECTOR_PRIORITY 2
 #endif
@@ -26,7 +25,6 @@ namespace ESPressio {
                 SemaphoreHandle_t _semaphore = nullptr;
                 TaskHandle_t _taskHandle = nullptr;
                 mutable std::mutex _initializationMutex;
-
                 ThreadGarbageCollector() {
                     _initialize();
                 }
@@ -41,7 +39,6 @@ namespace ESPressio {
                     if (_semaphore == nullptr) {
                         return false;
                     }
-
                     const BaseType_t result = xTaskCreate(
                         _taskEntry,
                         "threadGarbageCollector",
@@ -50,7 +47,6 @@ namespace ESPressio {
                         ESPRESSIO_THREAD_GARBAGE_COLLECTOR_PRIORITY,
                         &_taskHandle
                     );
-
                     if (result != pdPASS) {
                         vSemaphoreDelete(_semaphore);
                         _semaphore = nullptr;
@@ -64,14 +60,12 @@ namespace ESPressio {
                 static void _taskEntry(void* parameter) {
                     ThreadGarbageCollector* collector =
                         static_cast<ThreadGarbageCollector*>(parameter);
-
                     if (collector != nullptr) {
                         collector->_loop();
                     }
 
                     vTaskDelete(nullptr);
                 }
-
                 void _loop() {
                     for (;;) {
                         if (xSemaphoreTake(_semaphore, portMAX_DELAY) ==
@@ -85,7 +79,6 @@ namespace ESPressio {
                         }
                     }
                 }
-
             public:
                 static ThreadGarbageCollector* GetInstance() {
                     static ThreadGarbageCollector instance;
@@ -96,12 +89,11 @@ namespace ESPressio {
                 ThreadGarbageCollector& operator=(
                     const ThreadGarbageCollector&
                 ) = delete;
-
                 bool IsAvailable() const {
                     std::lock_guard<std::mutex> lock(_initializationMutex);
                     return _semaphore != nullptr && _taskHandle != nullptr;
                 }
-                
+
                 void CleanUp() override {
                     SemaphoreHandle_t semaphore = nullptr;
 
@@ -109,7 +101,6 @@ namespace ESPressio {
                         std::lock_guard<std::mutex> lock(
                             _initializationMutex
                         );
-
                         if (_initialize()) {
                             semaphore = _semaphore;
                         }
@@ -119,7 +110,6 @@ namespace ESPressio {
                         xSemaphoreGive(semaphore);
                         return;
                     }
-
                     // Resource exhaustion may prevent the infrastructure task
                     // from being created. The caller is an ordinary task (not
                     // TLS deletion cleanup), so synchronous collection is a
@@ -132,6 +122,5 @@ namespace ESPressio {
                     }
                 }
         };
-
     }
 }

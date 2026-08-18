@@ -1,7 +1,6 @@
 #pragma once
 
 #include <exception>
-
 #include "ESPressio_IObserver.hpp"
 #include "ESPressio_IThread.hpp"
 
@@ -17,7 +16,6 @@ namespace ESPressio {
                     ThreadState oldState,
                     ThreadState newState
                 ) { }
-
                 virtual void OnThreadUninitialized(IThread* thread) { }
                 virtual void OnThreadInitialized(IThread* thread) { }
                 virtual void OnThreadStarted(IThread* thread) { }
@@ -25,7 +23,6 @@ namespace ESPressio {
                 virtual void OnThreadTerminationRequested(IThread* thread) { }
                 virtual void OnThreadTerminated(IThread* thread) { }
                 virtual void OnThreadDestroyed(IThread* thread) { }
-
                 virtual void OnThreadTaskExited(IThread* thread) { }
 
                 virtual void OnThreadInitializationFailed(

@@ -11,7 +11,6 @@
 #ifndef ESPRESSIO_THREAD_TERMINATION_DISPATCHER_PRIORITY
     #define ESPRESSIO_THREAD_TERMINATION_DISPATCHER_PRIORITY 2
 #endif
-
 #ifndef ESPRESSIO_THREAD_TERMINATION_QUEUE_LENGTH
     #define ESPRESSIO_THREAD_TERMINATION_QUEUE_LENGTH 256
 #endif
@@ -31,7 +30,6 @@ namespace ESPressio {
 
                 static void _taskEntry(void* parameter);
                 void _loop();
-
             public:
                 ThreadTerminationDispatcher(
                     const ThreadTerminationDispatcher&

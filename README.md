@@ -3,16 +3,20 @@ Threading Components of the Flowduino ESPressio Development Platform.
 
 Light-weight and easy-to-use Threading for your Microcontroller development work.
 
-## Latest Stable Version
-The latest Stable Version is **3.0.0**.
+## Current Source Version
+This source tree is version **3.0.0**.
+
+Refer to the GitHub Releases page for the latest published release/tag.
 
 ## Compatibility
 
-ESPressio Threads supports the **ESP32 family** under Arduino-ESP32 or ESP-IDF. This includes classic ESP32 and current single- and multi-core variants such as ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-H2, and ESP32-P4 when supported by the installed framework version. Single-core devices use CPU 0; multiple hardware cores are not required.
+ESPressio Threads `3.0.0` targets the **ESP32 family under Arduino-ESP32**. This includes classic ESP32 and current single- and multi-core variants such as ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-H2, and ESP32-P4 when supported by the installed Arduino-ESP32/framework version. Single-core devices use CPU 0; multiple hardware cores are not required.
 
-The implementation directly uses ESP-IDF FreeRTOS task, queue, semaphore, and task-local-storage APIs. It is therefore not compatible with ESP8266 or non-ESP32 families such as AVR, SAMD, RP2040, STM32, or Renesas, even if another FreeRTOS port is available there without an ESP-IDF-compatible API surface.
+The implementation directly uses ESP-IDF FreeRTOS task, queue, semaphore, and task-local-storage APIs through Arduino-ESP32. The source architecture remains intentionally close to ESP-IDF and the repository retains its CMake/component files, but the `3.0.0` PlatformIO package does **not currently advertise pure ESP-IDF framework support** because the published ESPressio Timing/Units dependency chain does not yet advertise the same framework compatibility.
 
-Compatibility is source-derived; each device should be verified against the specific Arduino-ESP32 or ESP-IDF version used by the application.
+The library is not compatible with ESP8266 or non-ESP32 families such as AVR, SAMD, RP2040, STM32, or Renesas merely because another FreeRTOS port is available there.
+
+Compatibility should always be verified against the exact Arduino-ESP32 version and ESP32 target used by the consuming application.
 
 ## ESPressio Development Platform
 The **ESPressio** Development Platform is a collection of discrete (sometimes intra-connected) Component Libraries developed with a particular development ethos in mind.
@@ -46,8 +50,9 @@ The namespace provides the following (*click on any declaration to navigate to m
 - [`ESPressio::Threads::IThread`](#ithread)
 - `ESPressio::Threads::IThreadObserver`
 - [`ESPressio::Threads::Thread`](#thread)
-- `ESPressio::Threads::IPrecisionThreadObserver<TTime>`
-- `ESPressio::Threads::PrecisionThread<TTime>`
+- `ESPressio::Threads::PrecisionThreadTraits<TTime>`
+- `ESPressio::Threads::IPrecisionThreadObserver<TTime, TRepresentationTraits>`
+- `ESPressio::Threads::PrecisionThread<TTime, TRepresentationTraits>`
 - [`ESPressio::Threads::Manager`](#threadmanager)
 - [`ESPressio::Threads::GarbageCollector`](#garbagecollector)
 - [`ESPressio::Threads::IThreadSafe`](#ithreadsafe)
@@ -439,8 +444,8 @@ before the Thread so the Thread is destroyed first. `OnThreadDestroyed()` runs
 during the `Thread` base destructor; it must not delete its sender, retain the
 sender pointer, or access state belonging to an already-destroyed descendant.
 
-`PrecisionThread<TTime>` inherits all `Thread` lifecycle notifications. An Observer
-may implement both `IThreadObserver` and `IPrecisionThreadObserver<TTime>`, then
+`PrecisionThread<TTime, TRepresentationTraits>` inherits all `Thread` lifecycle notifications. An Observer
+may implement both `IThreadObserver` and the matching `IPrecisionThreadObserver<TTime, TRepresentationTraits>`, then
 register separately through `RegisterThreadObserver()` for lifecycle events
 and `RegisterIterationObserver()` for iteration events.
 
@@ -612,8 +617,7 @@ A consuming application may select a Serializable ESPressio Unit without
 introducing an ESPressio Serializable dependency into Threads itself:
 
 ```cpp
-#include <ESPressio_PrecisionThread.hpp>
-#include <ESPressio_Time_Serializable.hpp>
+#include <ESPressio_PrecisionThread_Serializable.hpp>
 
 using namespace ESPressio;
 
