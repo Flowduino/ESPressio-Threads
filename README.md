@@ -4,7 +4,7 @@ Threading Components of the Flowduino ESPressio Development Platform.
 Light-weight and easy-to-use Threading for your Microcontroller development work.
 
 ## Latest Stable Version
-The latest Stable Version is [2.0.0](https://github.com/Flowduino/ESPressio-Threads/releases/tag/2.0.0).
+The latest Stable Version is **3.0.0**.
 
 ## Compatibility
 
@@ -46,8 +46,8 @@ The namespace provides the following (*click on any declaration to navigate to m
 - [`ESPressio::Threads::IThread`](#ithread)
 - `ESPressio::Threads::IThreadObserver`
 - [`ESPressio::Threads::Thread`](#thread)
-- `ESPressio::Threads::IPrecisionThreadObserver`
-- `ESPressio::Threads::PrecisionThread`
+- `ESPressio::Threads::IPrecisionThreadObserver<TTime>`
+- `ESPressio::Threads::PrecisionThread<TTime>`
 - [`ESPressio::Threads::Manager`](#threadmanager)
 - [`ESPressio::Threads::GarbageCollector`](#garbagecollector)
 - [`ESPressio::Threads::IThreadSafe`](#ithreadsafe)
@@ -59,7 +59,7 @@ You can quickly and easily add this library to your project in PlatformIO by sim
 
 ```ini
 lib_deps =
-    flowduino/ESPressio-Threads@^2.0.0
+    flowduino/ESPressio-Threads@^3.0.0
 ```
 
 Alternatively, if you want to use the bleeding-edge (effectively "Developer Integration Testing" or "DIT") sources, you can instead use:
@@ -439,17 +439,28 @@ before the Thread so the Thread is destroyed first. `OnThreadDestroyed()` runs
 during the `Thread` base destructor; it must not delete its sender, retain the
 sender pointer, or access state belonging to an already-destroyed descendant.
 
-`PrecisionThread` inherits all `Thread` lifecycle notifications. An Observer
-may implement both `IThreadObserver` and `IPrecisionThreadObserver`, then
+`PrecisionThread<TTime>` inherits all `Thread` lifecycle notifications. An Observer
+may implement both `IThreadObserver` and `IPrecisionThreadObserver<TTime>`, then
 register separately through `RegisterThreadObserver()` for lifecycle events
 and `RegisterIterationObserver()` for iteration events.
 
 ## Precision Threads
 
-PrecisionThread is a high-resolution periodic Thread driven by an
-ESPressio-Timing ISystemClock. Pass an injected clock to its constructor, or
-pass nothing to use the shared SystemClock. Derive from it and implement
-Iterate(delta, startTime, skippedIterations).
+`PrecisionThread<TTime>` is a high-resolution periodic Thread driven by an
+ESPressio-Timing `ISystemClock<TTime>`. Version 3.0.0 makes its public time
+representation selectable at compile time. The default is
+`Timing::DefaultClockTime`, so ordinary applications use `PrecisionThread<>`.
+
+Internally, scheduling remains based on raw `uint64_t` nanoseconds. Conversion
+to and from the public representation is performed through
+`Timing::TimeTraits<TTime>`. Pass an injected `Timing::ISystemClock<TTime>*` or
+use the default `Timing::SystemClock<TTime>::GetInstance()`. Timing 2.x typed
+System Clock facades share one underlying System Clock core, so different
+representations still observe the same global timeline.
+
+ESPressio Threads itself has no dependency on ESPressio Serializable. A
+consuming application may explicitly instantiate `PrecisionThread<TTime>` with
+a Serializable ESPressio Unit when required.
 
 Derived precision-thread types can use the protected `WakeForWork()` operation
 to interrupt a scheduled wait for non-iteration work. The corresponding
@@ -478,14 +489,14 @@ IterationSampleCount is the number of recent iteration delta samples used by
 the rolling frequency calculation. Zero disables sampling and clears the
 current statistics.
 
-The selected ISystemClock is non-owning and must outlive the initialized
+The selected `ISystemClock<TTime>` is non-owning and must outlive the initialized
 thread. Precision scheduling assumes that the clock progresses monotonically.
 Do not call SetTime() on the selected clock while a precision thread is
 initialized or running: rebasing can invalidate deadlines, deltas, and skipped
 iteration reporting.
 
-Iteration observers implement IPrecisionThreadObserver and register through
-RegisterIterationObserver(). Notifications use ESPressio-Observable's
+Iteration observers implement `IPrecisionThreadObserver<TTime>` and register through
+`RegisterIterationObserver()`. The observer time type must match the Precision Thread. Notifications use ESPressio-Observable's
 thread-safe dispatch and run after Iterate() in the precision thread's task
 context. Observer work therefore contributes to the time before the next
 iteration and should remain short. The observable channel is owned internally,
@@ -507,7 +518,7 @@ using namespace ESPressio;
 
 constexpr uint8_t HeartbeatPin = 2;
 
-class HeartbeatThread final : public Threads::PrecisionThread {
+class HeartbeatThread final : public Threads::PrecisionThread<> {
     private:
         bool _ledState = false;
 
@@ -527,12 +538,12 @@ class HeartbeatThread final : public Threads::PrecisionThread {
 };
 
 class HeartbeatObserver final :
-    public Threads::IPrecisionThreadObserver {
+    public Threads::IPrecisionThreadObserver<> {
     public:
         void OnPrecisionThreadIteration(
-            Threads::PrecisionThread* thread,
-            Timing::ClockTime delta,
-            Timing::ClockTime startTime,
+            Threads::PrecisionThread<>* thread,
+            Timing::DefaultClockTime delta,
+            Timing::DefaultClockTime startTime,
             Threads::SkippedIterationCount skippedIterations
         ) override {
             (void)thread;
@@ -593,6 +604,52 @@ Observer notifications run in the Precision Thread's task context. Keep them
 short; lengthy notification work can cause later iteration deadlines to be
 missed. The first iteration receives a zero delta because no previous
 iteration exists.
+
+
+### Serializable Precision Thread Example
+
+A consuming application may select a Serializable ESPressio Unit without
+introducing an ESPressio Serializable dependency into Threads itself:
+
+```cpp
+#include <ESPressio_PrecisionThread.hpp>
+#include <ESPressio_Time_Serializable.hpp>
+
+using namespace ESPressio;
+
+using SerializableThreadTime =
+    Units::SerializableNanoSeconds<uint64_t>;
+
+class SerializableWorker final :
+    public Threads::PrecisionThread<SerializableThreadTime> {
+
+protected:
+    void Iterate(
+        IterationTime delta,
+        IterationTime startTime,
+        Threads::SkippedIterationCount skippedIterations
+    ) override {
+        // delta and startTime are SerializableThreadTime.
+    }
+};
+```
+
+### Migrating from 2.x
+
+`PrecisionThread` and `IPrecisionThreadObserver` are now templates. Existing
+default-time code should change `PrecisionThread` to `PrecisionThread<>` and
+`IPrecisionThreadObserver` to `IPrecisionThreadObserver<>`.
+
+Code referring to `Timing::ClockTime` should use
+`Timing::DefaultClockTime`, or the Precision Thread's `IterationTime` /
+`TimeType` aliases.
+
+ESPressio Threads 3.0.0 requires:
+
+```text
+ESPressio-Timing >= 2.0.0
+ESPressio-Observable >= 3.0.0
+```
 
 ### The Thread Manager
 In the previous example, you'll see that we manually called `Initialize()` on each instance of `MyFirstThread`.
