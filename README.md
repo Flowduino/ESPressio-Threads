@@ -43,6 +43,19 @@ To the maximum extent possible within the limitations/restrictons/constraints of
 ESPressio (and its component libraries, including this one) are subject to the *Apache License 2.0*
 Please see the [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) accompanying this library for full details.
 
+## ESPressio Library Dependencies
+
+ESPressio is designed as a modular ecosystem of independently useful libraries, with required dependencies kept explicit and optional integrations introduced only when the corresponding functionality is selected.
+
+For a complete overview of the relationships between ESPressio libraries—including required dependencies, opt-in dependencies, and the overall dependency hierarchy—see:
+
+**[ESPressio Library Dependency Chart](ESPRESSIO_DEPENDENCY_CHART.md)**
+
+In the dependency chart:
+
+- **Solid relationships** represent required ESPressio library dependencies.
+- **Dashed relationships** represent opt-in dependencies that are introduced only when the corresponding feature, integration, type, or header is used.
+
 ## Namespace
 Every type/variable/constant/etc. related to *ESPressio* Threads are located within the `Threads` sub-namespace of the `ESPressio` parent namespace.
 
