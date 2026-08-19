@@ -12,6 +12,15 @@ Versioning](https://semver.org/).
 > had little or no release-note detail, the entry is intentionally terse
 > rather than inferring unsupported intent.
 
+## \[3.1.1\] - 2026-08-19
+
+### Changed
+
+-   Updated the required ESPressio Timing baseline to 2.2.1, matching the dependency-refresh release generation.
+-   Bounded ESPressio Timing compatibility to the current 2.x major line (`>=2.2.1 <3.0.0`).
+-   Bounded ESPressio Observable compatibility to the current 3.x major line (`>=3.0.0 <4.0.0`).
+-   Updated package metadata and current installation/dependency guidance for Threads 3.1.1.
+
 ## \[3.1.0\] - 2026-08-19
 
 ### Added

@@ -10,7 +10,7 @@
         "type": "git",
         "url": "https://github.com/Flowduino/ESPressio-Threads.git"
     },
-    "version": "3.1.0",
+    "version": "3.1.1",
     "license": "Apache-2.0",
     "frameworks": [
         "arduino"
@@ -21,12 +21,12 @@
     "dependencies": [
         {
             "name": "Flowduino ESPressio-Timing",
-            "version": ">=2.0.0",
+            "version": ">=2.2.1 <3.0.0",
             "url": "https://github.com/Flowduino/ESPressio-Timing.git"
         },
         {
             "name": "Flowduino ESPressio-Observable",
-            "version": ">=3.0.0",
+            "version": ">=3.0.0 <4.0.0",
             "url": "https://github.com/Flowduino/ESPressio-Observable.git"
         }
     ]
