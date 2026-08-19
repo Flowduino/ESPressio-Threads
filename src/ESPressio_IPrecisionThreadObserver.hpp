@@ -48,16 +48,11 @@ namespace ESPressio {
 
                 virtual void
                 OnPrecisionThreadIteration(
-                    ThreadType* thread,
-                    TTime delta,
-                    TTime startTime,
+                    ThreadType*,
+                    TTime,
+                    TTime,
                     SkippedIterationCount
-                        skippedIterations
                 ) {
-                    (void)thread;
-                    (void)delta;
-                    (void)startTime;
-                    (void)skippedIterations;
                 }
         };
 

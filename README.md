@@ -4,15 +4,15 @@ Threading Components of the Flowduino ESPressio Development Platform.
 Light-weight and easy-to-use Threading for your Microcontroller development work.
 
 ## Current Source Version
-This source tree is version **3.0.0**.
+This source tree is version **3.1.0**.
 
 Refer to the GitHub Releases page for the latest published release/tag.
 
 ## Compatibility
 
-ESPressio Threads `3.0.0` targets the **ESP32 family under Arduino-ESP32**. This includes classic ESP32 and current single- and multi-core variants such as ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-H2, and ESP32-P4 when supported by the installed Arduino-ESP32/framework version. Single-core devices use CPU 0; multiple hardware cores are not required.
+ESPressio Threads `3.1.0` targets the **ESP32 family under Arduino-ESP32**. This includes classic ESP32 and current single- and multi-core variants such as ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-H2, and ESP32-P4 when supported by the installed Arduino-ESP32/framework version. Single-core devices use CPU 0; multiple hardware cores are not required.
 
-The implementation directly uses ESP-IDF FreeRTOS task, queue, semaphore, and task-local-storage APIs through Arduino-ESP32. The source architecture remains intentionally close to ESP-IDF and the repository retains its CMake/component files, but the `3.0.0` PlatformIO package does **not currently advertise pure ESP-IDF framework support** because the published ESPressio Timing/Units dependency chain does not yet advertise the same framework compatibility.
+The implementation directly uses ESP-IDF FreeRTOS task, queue, semaphore, and task-local-storage APIs through Arduino-ESP32. The source architecture remains intentionally close to ESP-IDF and the repository retains its CMake/component files, but the `3.1.0` PlatformIO package does **not currently advertise pure ESP-IDF framework support** because the published ESPressio Timing/Units dependency chain does not yet advertise the same framework compatibility.
 
 The library is not compatible with ESP8266 or non-ESP32 families such as AVR, SAMD, RP2040, STM32, or Renesas merely because another FreeRTOS port is available there.
 
@@ -64,7 +64,7 @@ You can quickly and easily add this library to your project in PlatformIO by sim
 
 ```ini
 lib_deps =
-    flowduino/ESPressio-Threads@^3.0.0
+    flowduino/ESPressio-Threads@^3.1.0
 ```
 
 Alternatively, if you want to use the bleeding-edge (effectively "Developer Integration Testing" or "DIT") sources, you can instead use:
@@ -449,6 +449,151 @@ may implement both `IThreadObserver` and the matching `IPrecisionThreadObserver<
 register separately through `RegisterThreadObserver()` for lifecycle events
 and `RegisterIterationObserver()` for iteration events.
 
+
+## Observable Infrastructure Notifications
+
+Version `3.1.0` extends ESPressio Threads' existing per-Thread Observer model to the process-wide threading infrastructure.
+
+The existing:
+
+```cpp
+IThreadObserver
+IPrecisionThreadObserver<TTime, TRepresentationTraits>
+```
+
+remain available and retain their existing lifecycle/iteration semantics.
+
+Three additional observer interfaces are introduced:
+
+```cpp
+IThreadManagerObserver
+IThreadGarbageCollectorObserver
+IThreadTerminationDispatcherObserver
+```
+
+These make the singleton infrastructure observable without introducing any dependency on ESPressio Event.
+
+### ThreadManager Observer
+
+Register using:
+
+```cpp
+auto handle =
+    Threads::ThreadManager::
+        GetInstance()->
+        RegisterObserver(
+            observer
+        );
+```
+
+Notifications cover meaningful registry/infrastructure operations including:
+
+```text
+thread registered
+thread registration failed
+thread removed
+automatic cleanup claimed
+cleanup deferred
+cleanup started
+cleanup completed
+cleanup failed
+manager initialization completed
+```
+
+The manager exposes immutable snapshot/result structures:
+
+```cpp
+ThreadManagerThreadSnapshot
+ThreadManagerCleanupResult
+ThreadManagerInitializationResult
+```
+
+so asynchronous bridges can later preserve historical data without relying solely on a potentially short-lived `IThread*`.
+
+`ForEachThread()` and `WithThread()` remain operational visitor callbacks; they are deliberately not converted into Observer notifications because they instruct the manager what work to perform rather than reporting something that happened.
+
+### ThreadGarbageCollector Observer
+
+The singleton garbage collector now exposes:
+
+```cpp
+IThreadGarbageCollectorObserver
+```
+
+with notifications covering:
+
+```text
+collector availability
+initialization failure/recovery
+collection requested
+request queued
+duplicate request coalesced
+collection started
+synchronous fallback started
+collection completed
+collection failed
+```
+
+`ThreadGarbageCollectionResult` identifies whether the operation used the normal asynchronous worker or the resource-exhaustion synchronous fallback and embeds the corresponding `ThreadManagerCleanupResult`.
+
+### ThreadTerminationDispatcher Observer
+
+The singleton termination dispatcher now exposes:
+
+```cpp
+IThreadTerminationDispatcherObserver
+```
+
+with notifications for:
+
+```text
+dispatcher availability
+termination dispatch queued
+termination dispatch queue failure
+termination dispatch started
+termination dispatch completed
+```
+
+Dispatcher notifications use immutable `ThreadManagerThreadSnapshot` values. The dispatcher deliberately does not dereference a Thread after termination dispatch completes because automatic garbage collection can then own its destruction.
+
+### Observer Failure Isolation
+
+Infrastructure Observer callbacks are diagnostic/reactive extensions to the threading operation.
+
+Exceptions thrown from Observers are contained and do not interrupt:
+
+```text
+thread registration
+thread removal
+garbage collection
+termination dispatch
+precision scheduling
+```
+
+`PrecisionThread` iteration Observer notification is now likewise exception-isolated.
+
+### Future Event Bridges
+
+The 3.1 Observer surface is intentionally synchronous and transport/event agnostic.
+
+It is designed to support opt-in bridges in ESPressio Event:
+
+```text
+Threads singleton operation
+        |
+        v
+Observable notification
+        |
+        v
+optional Event bridge
+        |
+        v
+asynchronous Event
+```
+
+This keeps ESPressio Threads independent of ESPressio Event while providing rich immutable snapshots suitable for later ordinary and Serializable Event counterparts.
+
+
 ## Precision Threads
 
 `PrecisionThread<TTime>` is a high-resolution periodic Thread driven by an
@@ -648,7 +793,7 @@ Code referring to `Timing::ClockTime` should use
 `Timing::DefaultClockTime`, or the Precision Thread's `IterationTime` /
 `TimeType` aliases.
 
-ESPressio Threads 3.0.0 requires:
+ESPressio Threads 3.1.0 requires:
 
 ```text
 ESPressio-Timing >= 2.0.0

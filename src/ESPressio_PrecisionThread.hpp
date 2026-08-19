@@ -95,12 +95,17 @@ namespace ESPressio {
                                 >([&](
                                     IPrecisionThreadObserver<TTime, TRepresentationTraits>* observer
                                 ) {
-                                    observer->OnPrecisionThreadIteration(
-                                        thread,
-                                        delta,
-                                        startTime,
-                                        skippedIterations
-                                    );
+                                    try {
+                                        observer->OnPrecisionThreadIteration(
+                                            thread,
+                                            delta,
+                                            startTime,
+                                            skippedIterations
+                                        );
+                                    } catch (...) {
+                                        // Observer diagnostics must not
+                                        // interrupt precision scheduling.
+                                    }
                                 });
                             });
                         }
