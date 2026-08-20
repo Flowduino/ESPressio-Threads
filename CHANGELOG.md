@@ -12,6 +12,15 @@ Versioning](https://semver.org/).
 > had little or no release-note detail, the entry is intentionally terse
 > rather than inferring unsupported intent.
 
+## \[3.1.2\] - 2026-08-20
+
+### Changed
+
+-   Raised the minimum ESPressio Timing dependency to 2.2.2, carrying forward the Observable 3.0.1 baseline from Timing's dependency-refresh patch.
+-   Raised the direct ESPressio Observable dependency floor from 3.0.0 to 3.0.1.
+-   Updated package and ESP-IDF component version metadata for Threads 3.1.2.
+-   No public Threads interfaces or runtime semantics changed.
+
 ## \[3.1.1\] - 2026-08-19
 
 ### Changed
