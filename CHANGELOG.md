@@ -12,7 +12,20 @@ Versioning](https://semver.org/).
 > had little or no release-note detail, the entry is intentionally terse
 > rather than inferring unsupported intent.
 
-## \[3.1.2\] - 2026-08-20
+## [3.1.3] - 2026-08-20
+
+### Changed
+
+- Raised the required ESPressio Timing baseline from 2.2.2 to 2.2.3, carrying the Units 0.2.2 / Serializable 0.10.1 dependency refresh downstream.
+- Preserved the direct ESPressio Observable baseline at `>=3.0.1 <4.0.0`.
+- Updated package and ESP-IDF component version metadata for Threads 3.1.3.
+- Preserved the dependency direction `Threads -> Timing -> Units -> optional Serializable`; Threads does not acquire a direct Serializable dependency.
+
+### Compatibility
+
+- No public Threads interfaces or runtime semantics changed.
+
+## [3.1.2] - 2026-08-20
 
 ### Changed
 
@@ -21,7 +34,7 @@ Versioning](https://semver.org/).
 -   Updated package and ESP-IDF component version metadata for Threads 3.1.2.
 -   No public Threads interfaces or runtime semantics changed.
 
-## \[3.1.1\] - 2026-08-19
+## [3.1.1] - 2026-08-19
 
 ### Changed
 
@@ -30,7 +43,7 @@ Versioning](https://semver.org/).
 -   Bounded ESPressio Observable compatibility to the current 3.x major line (`>=3.0.0 <4.0.0`).
 -   Updated package metadata and current installation/dependency guidance for Threads 3.1.1.
 
-## \[3.1.0\] - 2026-08-19
+## [3.1.0] - 2026-08-19
 
 ### Added
 
@@ -53,7 +66,7 @@ Versioning](https://semver.org/).
 -   Kept the notification layer synchronous and independent of ESPressio
     Event so Event bridges can remain opt-in.
 
-## \[3.0.0\] - 2026-08-18
+## [3.0.0] - 2026-08-18
 
 ### Added
 
@@ -77,7 +90,7 @@ Versioning](https://semver.org/).
 -   Corrected integration issues found while validating the 3.0 codebase
     against the newest ESPressio dependencies.
 
-## \[2.0.0\] - 2026-08-13
+## [2.0.0] - 2026-08-13
 
 ### Changed
 
@@ -92,34 +105,34 @@ Versioning](https://semver.org/).
     window is changed or disabled.
 -   Clarified process-lifetime Thread infrastructure ownership.
 
-## \[1.4.1\]
+## [1.4.1]
 
 ### Fixed
 
 -   Maintenance corrections to the 1.4 series.
 
-## \[1.3.0\]
+## [1.3.0]
 
 ### Added
 
 -   Expanded the Thread/PrecisionThread feature set and lifecycle
     infrastructure.
 
-## \[1.2.0\]
+## [1.2.0]
 
 ### Added
 
 -   Continued development of precision-threading and
     lifecycle-management capabilities.
 
-## \[1.1.0\]
+## [1.1.0]
 
 ### Added
 
 -   Extended the initial Thread abstraction with additional
     lifecycle/scheduling functionality.
 
-## \[1.0.0\]
+## [1.0.0]
 
 ### Added
 
