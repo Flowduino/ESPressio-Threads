@@ -18,12 +18,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Flowduino/ESPressio-Timing
-          ref: feature/5-units-0.2.2-dependency-refresh
+          ref: 2.2.3
           path: project/dependencies/ESPressio-Timing
       - uses: actions/checkout@v4
         with:
           repository: Flowduino/ESPressio-Units
-          ref: feature/2-serializable-0.10.1-dependency-refresh
+          ref: 0.2.2
           path: project/dependencies/ESPressio-Units
       - uses: actions/checkout@v4
         with:
@@ -65,5 +65,5 @@ jobs:
           void setup() {}
           void loop() {}
           EOF
-      - name: Compile Threads against Timing 2.2.3 candidate
+      - name: Compile Threads against released Timing 2.2.3
         run: pio run -d project/compile
