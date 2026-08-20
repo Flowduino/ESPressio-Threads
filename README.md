@@ -4,15 +4,15 @@ Threading Components of the Flowduino ESPressio Development Platform.
 Light-weight and easy-to-use Threading for your Microcontroller development work.
 
 ## Current Source Version
-This source tree is version **3.1.1**.
+This source tree is version **3.1.2**.
 
 Refer to the GitHub Releases page for the latest published release/tag.
 
 ## Compatibility
 
-ESPressio Threads `3.1.0` targets the **ESP32 family under Arduino-ESP32**. This includes classic ESP32 and current single- and multi-core variants such as ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-H2, and ESP32-P4 when supported by the installed Arduino-ESP32/framework version. Single-core devices use CPU 0; multiple hardware cores are not required.
+ESPressio Threads `3.1.2` targets the **ESP32 family under Arduino-ESP32**. This includes classic ESP32 and current single- and multi-core variants such as ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-H2, and ESP32-P4 when supported by the installed Arduino-ESP32/framework version. Single-core devices use CPU 0; multiple hardware cores are not required.
 
-The implementation directly uses ESP-IDF FreeRTOS task, queue, semaphore, and task-local-storage APIs through Arduino-ESP32. The source architecture remains intentionally close to ESP-IDF and the repository retains its CMake/component files, but the `3.1.0` PlatformIO package does **not currently advertise pure ESP-IDF framework support** because the published ESPressio Timing/Units dependency chain does not yet advertise the same framework compatibility.
+The implementation directly uses ESP-IDF FreeRTOS task, queue, semaphore, and task-local-storage APIs through Arduino-ESP32. The source architecture remains intentionally close to ESP-IDF and the repository retains its CMake/component files, but the `3.1.2` PlatformIO package does **not currently advertise pure ESP-IDF framework support** because the published ESPressio Timing/Units dependency chain does not yet advertise the same framework compatibility.
 
 The library is not compatible with ESP8266 or non-ESP32 families such as AVR, SAMD, RP2040, STM32, or Renesas merely because another FreeRTOS port is available there.
 
@@ -64,7 +64,7 @@ You can quickly and easily add this library to your project in PlatformIO by sim
 
 ```ini
 lib_deps =
-    flowduino/ESPressio-Threads@^3.1.1
+    flowduino/ESPressio-Threads@^3.1.2
 ```
 
 Alternatively, if you want to use the bleeding-edge (effectively "Developer Integration Testing" or "DIT") sources, you can instead use:
@@ -793,11 +793,11 @@ Code referring to `Timing::ClockTime` should use
 `Timing::DefaultClockTime`, or the Precision Thread's `IterationTime` /
 `TimeType` aliases.
 
-ESPressio Threads 3.1.1 requires:
+ESPressio Threads 3.1.2 requires:
 
 ```text
-ESPressio-Timing >= 2.2.1 < 3.0.0
-ESPressio-Observable >= 3.0.0 < 4.0.0
+ESPressio-Timing >= 2.2.2 < 3.0.0
+ESPressio-Observable >= 3.0.1 < 4.0.0
 ```
 
 ### The Thread Manager
