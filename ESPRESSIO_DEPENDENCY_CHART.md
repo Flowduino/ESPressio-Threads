@@ -47,16 +47,16 @@ EXECUTION
 
 TRANSPORT / EVENT
 ├── Sockets 0.5.0
-├── ESP-Now 0.5.2 (planned downstream refresh)
-└── Event 5.8.2 (planned downstream convergence)
+├── ESP-Now 0.5.2
+└── Event 5.8.2
 
 DIAGNOSTICS / OPERATOR
-└── Serial 0.5.1 (release candidate)
+└── Serial 0.5.1
 ```
 
 ## Downstream consumers
 
-Event 5.8.2 will consume Threads 3.1.4 as a required dependency. Serial 0.5.1
+Event 5.8.2 consumes Threads 3.1.4 as a required dependency. Serial 0.5.1
 may consume Threads directly only through its opt-in diagnostic integration.
 
 Threads itself remains independent of Event and Serial.
