@@ -4,24 +4,24 @@ Threading Components of the Flowduino ESPressio Development Platform.
 Light-weight and easy-to-use Threading for your Microcontroller development work.
 
 ## Current Source Version
-This source tree is version **3.1.3**.
+This source tree is version **3.1.4**.
 
 Refer to the GitHub Releases page for the latest published release/tag.
 
 Current required ESPressio baselines:
 
 ```text
-Timing >= 2.2.3 < 3.0.0
+Timing >= 2.2.4 < 3.0.0
 Observable >= 3.0.1 < 4.0.0
 ```
 
-Timing 2.2.3 carries Units 0.2.2 downstream; Serializable remains optional through Serializable Unit representations rather than becoming a direct Threads dependency.
+Timing 2.2.4 carries Units 0.2.3 and optional Serializable 0.10.2 downstream; Serializable remains optional through Serializable Unit representations rather than becoming a direct Threads dependency.
 
 ## Compatibility
 
-ESPressio Threads `3.1.3` targets the **ESP32 family under Arduino-ESP32**. This includes classic ESP32 and current single- and multi-core variants such as ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-H2, and ESP32-P4 when supported by the installed Arduino-ESP32/framework version. Single-core devices use CPU 0; multiple hardware cores are not required.
+ESPressio Threads `3.1.4` targets the **ESP32 family under Arduino-ESP32**. This includes classic ESP32 and current single- and multi-core variants such as ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-H2, and ESP32-P4 when supported by the installed Arduino-ESP32/framework version. Single-core devices use CPU 0; multiple hardware cores are not required.
 
-The implementation directly uses ESP-IDF FreeRTOS task, queue, semaphore, and task-local-storage APIs through Arduino-ESP32. The source architecture remains intentionally close to ESP-IDF and the repository retains its CMake/component files, but the `3.1.3` PlatformIO package does **not currently advertise pure ESP-IDF framework support** because the published ESPressio Timing/Units dependency chain does not yet advertise the same framework compatibility.
+The implementation directly uses ESP-IDF FreeRTOS task, queue, semaphore, and task-local-storage APIs through Arduino-ESP32. The source architecture remains intentionally close to ESP-IDF and the repository retains its CMake/component files, but the `3.1.4` PlatformIO package does **not currently advertise pure ESP-IDF framework support** because the published ESPressio Timing/Units dependency chain does not yet advertise the same framework compatibility.
 
 The library is not compatible with ESP8266 or non-ESP32 families such as AVR, SAMD, RP2040, STM32, or Renesas merely because another FreeRTOS port is available there.
 
