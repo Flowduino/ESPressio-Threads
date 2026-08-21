@@ -1,0 +1,43 @@
+name: Dependency README maintenance
+
+on:
+  push:
+    branches:
+      - feature/47-timing-2.2.4-dependency-refresh
+
+permissions:
+  contents: write
+
+jobs:
+  update-readme:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update current dependency references
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('README.md')
+          text = path.read_text()
+          replacements = {
+              'This source tree is version **3.1.3**.': 'This source tree is version **3.1.4**.',
+              'Timing >= 2.2.3 < 3.0.0': 'Timing >= 2.2.4 < 3.0.0',
+              'Timing 2.2.3 carries Units 0.2.2 downstream; Serializable remains optional through Serializable Unit representations rather than becoming a direct Threads dependency.': 'Timing 2.2.4 carries Units 0.2.3 and optional Serializable 0.10.2 downstream; Serializable remains optional through Serializable Unit representations rather than becoming a direct Threads dependency.',
+              'ESPressio Threads `3.1.3` targets the **ESP32 family under Arduino-ESP32**.': 'ESPressio Threads `3.1.4` targets the **ESP32 family under Arduino-ESP32**.',
+              'the `3.1.3` PlatformIO package does **not currently advertise pure ESP-IDF framework support**': 'the `3.1.4` PlatformIO package does **not currently advertise pure ESP-IDF framework support**'
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'Missing expected README text: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text)
+      - name: Commit README update
+        shell: bash
+        run: |
+          if git diff --quiet -- README.md; then exit 0; fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add README.md
+          git commit -m 'docs: refresh Threads 3.1.4 dependency references (#47)'
+          git push
