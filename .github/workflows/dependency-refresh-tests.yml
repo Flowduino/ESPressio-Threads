@@ -3,7 +3,7 @@ name: Dependency Refresh Tests
 on:
   push:
     branches:
-      - feature/45-timing-2.2.3-dependency-refresh
+      - feature/47-timing-2.2.4-dependency-refresh
   pull_request:
     branches:
       - main
@@ -18,12 +18,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Flowduino/ESPressio-Timing
-          ref: 2.2.3
+          ref: 2.2.4
           path: project/dependencies/ESPressio-Timing
       - uses: actions/checkout@v4
         with:
           repository: Flowduino/ESPressio-Units
-          ref: 0.2.2
+          ref: 0.2.3
           path: project/dependencies/ESPressio-Units
       - uses: actions/checkout@v4
         with:
@@ -65,5 +65,5 @@ jobs:
           void setup() {}
           void loop() {}
           EOF
-      - name: Compile Threads against released Timing 2.2.3
+      - name: Compile Threads against released Timing 2.2.4
         run: pio run -d project/compile

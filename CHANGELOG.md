@@ -12,6 +12,20 @@ Versioning](https://semver.org/).
 > had little or no release-note detail, the entry is intentionally terse
 > rather than inferring unsupported intent.
 
+## [3.1.4] - 2026-08-21
+
+### Changed
+
+- Raised the required ESPressio Timing baseline from 2.2.3 to 2.2.4, carrying the Units 0.2.3 / Serializable 0.10.2 dependency refresh downstream.
+- Preserved the direct ESPressio Observable baseline at `>=3.0.1 <4.0.0`.
+- Updated package and ESP-IDF component version metadata for Threads 3.1.4.
+- Updated README and current dependency documentation to the 3.1.4 dependency generation.
+- Preserved the dependency direction `Threads -> Timing -> Units -> optional Serializable`; Threads does not acquire a direct Serializable dependency.
+
+### Compatibility
+
+- No public Threads interfaces or runtime semantics changed.
+
 ## [3.1.3] - 2026-08-20
 
 ### Changed
