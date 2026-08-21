@@ -3,7 +3,7 @@ name: Dependency Refresh Tests
 on:
   push:
     branches:
-      - feature/47-timing-2.2.4-dependency-refresh
+      - main
   pull_request:
     branches:
       - main
