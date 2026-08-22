@@ -17,17 +17,17 @@ jobs:
           path: project/ESPressio-Threads
       - uses: actions/checkout@v4
         with:
-          repository: Flowduino/ESPressio-Timing
+          repository: ESPressio-Development-Platform/ESPressio-Timing
           ref: 2.2.4
           path: project/dependencies/ESPressio-Timing
       - uses: actions/checkout@v4
         with:
-          repository: Flowduino/ESPressio-Units
+          repository: ESPressio-Development-Platform/ESPressio-Units
           ref: 0.2.3
           path: project/dependencies/ESPressio-Units
       - uses: actions/checkout@v4
         with:
-          repository: Flowduino/ESPressio-Observable
+          repository: ESPressio-Development-Platform/ESPressio-Observable
           ref: 3.0.1
           path: project/dependencies/ESPressio-Observable
       - uses: actions/setup-python@v5

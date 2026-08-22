@@ -2,13 +2,15 @@
     "name": "ESPressio-Threads",
     "description": "Threading library for single- and multi-core ESP32 microcontrollers",
     "keywords": "thread,threads,threading,esp,esp32,espressif,multi-threading,multi-core",
+    "homepage": "https://espressio.org",
     "authors": {
-        "name": "Flowduino",
-        "maintainer": true
+        "name": "Simon J. Stuart",
+        "maintainer": true,
+        "url": "https://espressio.org"
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/Flowduino/ESPressio-Threads.git"
+        "url": "https://github.com/ESPressio-Development-Platform/ESPressio-Threads.git"
     },
     "version": "3.1.4",
     "license": "Apache-2.0",
@@ -20,14 +22,14 @@
     ],
     "dependencies": [
         {
-            "name": "Flowduino ESPressio-Timing",
+            "name": "ESPressio-Timing",
             "version": ">=2.2.4 <3.0.0",
-            "url": "https://github.com/Flowduino/ESPressio-Timing.git"
+            "url": "https://github.com/ESPressio-Development-Platform/ESPressio-Timing.git"
         },
         {
-            "name": "Flowduino ESPressio-Observable",
+            "name": "ESPressio-Observable",
             "version": ">=3.0.1 <4.0.0",
-            "url": "https://github.com/Flowduino/ESPressio-Observable.git"
+            "url": "https://github.com/ESPressio-Development-Platform/ESPressio-Observable.git"
         }
     ]
 }

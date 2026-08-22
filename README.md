@@ -1,5 +1,5 @@
 # ESPressio Threads
-Threading Components of the Flowduino ESPressio Development Platform.
+Threading Components of the ESPressio Development Platform.
 
 Light-weight and easy-to-use Threading for your Microcontroller development work.
 
@@ -73,14 +73,14 @@ You can quickly and easily add this library to your project in PlatformIO by sim
 
 ```ini
 lib_deps =
-    flowduino/ESPressio-Threads@^3.1.4
+    espressio-development-platform/ESPressio-Threads@^3.1.4
 ```
 
 Alternatively, if you want to use the bleeding-edge (effectively "Developer Integration Testing" or "DIT") sources, you can instead use:
 
 ```ini
 lib_deps = 
-	https://github.com/Flowduino/ESPressio-Threads.git
+	https://github.com/ESPressio-Development-Platform/ESPressio-Threads.git
 ```
 Please note that this will use the very latest commits pushed into the repository, so volatility is possible.
 
@@ -1148,7 +1148,7 @@ This may be useful if it is not absolutely critical to get the precise (actual) 
 * `TrySet(T value)` will attempt to obtain the Thread-Safe (Write) Lock, and if it is available in that instant, will set the value to that given for `value`. This method returns a `bool`, where `true` indicates that the value was updated, and `false` indicates that it was *not* updated.
 * `IsLockedRead()` returns a bool where `true` indicates that the Thread-Safe Read Lock is currently unavailable, while `false` indicates that the invoking Thread acquired it. Invoke `ReleaseReadLock()` when finished.
 * `IsLockedWrite()` returns a bool where `true` indicates that the Thread-Safe Write Lock is currently unavailable, while `false` indicates that the invoking Thread acquired it. Invoke `ReleaseWriteLock()` when finished.
-* `WithReadLock()` invokes the given *Lambda Function* with a mutable reference to `T`. Because the callback can modify the value, this method uses an exclusive lock.
+* `WithReadLock()` invokes a callback taking a mutable reference to `T`. Because the callback can modify the value, this method uses an exclusive lock.
 * `WithWriteLock()` invokes the given *Lambda Function* (which takes a reference to `T` - the specialized value type - as its parameter) and executes that *Lambda Function* within the protection of the acquired Thread-Safe (Write) lock.
 * `TryWithReadLock()` operates almost identically to `WithReadLock()`, however it will *only* execute the *Lambda Function* if the exclusive Lock is immediately available at the instant of request. It returns a `bool` where `true` indicates that the Lock was acquired (therefore the *Lambda Function* executed) and `false` indicates that the Lock was unavailable (therefore the *Lamdba Function* was *not* executed).
 * `TryWithWriteLock()` operates almost identically to `WithWriteLock()`, however it will *only* execute the *Lambda Function* if the Thread-Safe (Write) Lock is immediately available at the instant of request. It returns a `bool` where `true` indicates that the Lock was acquired (therefore the *Lambda Function* executed) and `false` indicates that the Lock was unavailable (therefore the *Lamdba Function* was *not* executed).
